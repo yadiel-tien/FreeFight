@@ -1,0 +1,6 @@
+.idea/
+.DS_Store
+GEMINI.md
+.venv/
+__pycache__/
+*.pyc
