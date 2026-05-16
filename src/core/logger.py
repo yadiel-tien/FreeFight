@@ -43,14 +43,14 @@ def setup_logger():
     logger.setLevel(logging.DEBUG)
 
     # 1. 控制台处理器 (Console Handler)
-    # 使用简洁的格式方便开发查看
+    # 增加时间戳，让实时反馈更有参考价值
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)
-    console_formatter = logging.Formatter('%(levelname)s: %(message)s')
+    console_formatter = logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s', datefmt='%H:%M:%S')
     console_handler.setFormatter(console_formatter)
 
     # 2. 文件处理器 (File Handler)
-    # 记录详细信息包括时间戳和代码位置
+    # 保持详细记录，微调格式
     file_handler = logging.FileHandler(log_path, encoding='utf-8')
     file_handler.setLevel(logging.DEBUG)
     file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s')

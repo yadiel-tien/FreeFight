@@ -106,12 +106,16 @@ class Settings(Scene):
 
     def init_widgets(self):
         x, y = self.panel_rect.x + 50, self.panel_rect.y + 100
+        res_options = ['1280x720', '1920x1080', '800x600']
+        current_res = config.get('graphics', 'resolution')
+        res_index = res_options.index(current_res) if current_res in res_options else 0
+        
         self.widgets = [
             Slider('主音量', (x, y), config.get('volume', 'master')),
             Slider('音乐', (x, y + 45), config.get('volume', 'music')),
             Slider('音效', (x, y + 90), config.get('volume', 'sfx')),
             Toggle('全屏', (x, y + 135), config.get('graphics', 'fullscreen')),
-            Selector('分辨率', (x, y + 180), ['1280x720', '1920x1080', '800x600'], 0),
+            Selector('分辨率', (x, y + 180), res_options, res_index),
             KeyBinder('键盘攻击', (x, y + 225), config.get('controls', 'keyboard', 'attack')),
             KeyBinder('手柄攻击', (x, y + 270), config.get('controls', 'joystick', 'attack'), is_joystick=True),
             Button('恢复默认设置', (x, y + 330), (500, 45))

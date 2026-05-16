@@ -1,12 +1,12 @@
 {
     "volume": {
-        "master": 0.7642857142857142,
+        "master": 0.8142857142857143,
         "music": 0.44285714285714284,
         "sfx": 0.29285714285714287
     },
     "graphics": {
         "fullscreen": false,
-        "resolution": "800x600",
+        "resolution": "1280x720",
         "vsync": true
     },
     "controls": {
