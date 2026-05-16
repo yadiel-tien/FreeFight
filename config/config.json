@@ -1,12 +1,12 @@
 {
     "volume": {
         "master": 0.7642857142857142,
-        "music": 0.0,
-        "sfx": 0.0
+        "music": 0.44285714285714284,
+        "sfx": 0.29285714285714287
     },
     "graphics": {
         "fullscreen": false,
-        "resolution": "1280x720",
+        "resolution": "800x600",
         "vsync": true
     },
     "controls": {
@@ -15,7 +15,7 @@
             "right": "d",
             "up": "w",
             "down": "s",
-            "attack": "j",
+            "attack": "u",
             "jump": "k",
             "super move 1": "u",
             "super move 2": "i",

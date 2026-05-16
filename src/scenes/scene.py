@@ -12,6 +12,8 @@ from core.timer import Timer
 from ui.ui import Particles
 from ui.components.widgets import Slider, Selector, KeyBinder, Button, Toggle
 from core.config import config
+from core.logger import logger
+import settings
 
 
 class SceneStatus(Enum):
@@ -98,7 +100,8 @@ class Settings(Scene):
         self.selection_index = 0
         self.widgets[0].selected = True
         
-        self.timer = Timer(150) # 输入冷却
+        # 增加输入冷却时间，防止一按跳好几个（从150ms调到250ms）
+        self.timer = Timer(250) 
         self.dialogue = Dialogue(game_input)
 
     def init_widgets(self):
@@ -170,48 +173,6 @@ class Settings(Scene):
             
             return SceneStatus.SETTINGS
 
-        # --- 鼠标交互处理 ---
-        mouse_pos = pygame.mouse.get_pos()
-        mouse_buttons = pygame.mouse.get_pressed()
-        
-        # 记录上一帧的鼠标左键状态，用于判断是否刚刚松开
-        if not hasattr(self, '_last_mouse_down'):
-            self._last_mouse_down = False
-        just_released = self._last_mouse_down and not mouse_buttons[0]
-        self._last_mouse_down = mouse_buttons[0]
-        
-        for i, widget in enumerate(self.widgets):
-            # 鼠标碰撞检测：扩大一点判定范围方便操作
-            hover_rect = widget.rect.inflate(100 if isinstance(widget, Button) else 200, 10)
-            if hover_rect.collidepoint(mouse_pos):
-                self.widgets[self.selection_index].selected = False
-                self.selection_index = i
-                widget.selected = True
-                
-                # 鼠标点击处理
-                if mouse_buttons[0] and not self.timer.active:
-                    if isinstance(widget, Button):
-                        self.dialogue.show('确定要恢复默认设置吗？')
-                        self.timer.activate()
-                    elif hasattr(widget, 'waiting_for_input'):
-                        widget.waiting_for_input = True
-                        self.timer.activate()
-                    elif isinstance(widget, (Selector, Toggle)):
-                        val = widget.update_value('right')
-                        self._apply_setting(widget.label, val)
-                        config.save() 
-                        self.timer.activate()
-
-            # 滑动条特殊处理 (即使鼠标不在 rect 内，只要在拖拽中也要处理)
-            if isinstance(widget, Slider):
-                was_dragging = widget.dragging
-                new_val = widget.handle_mouse(mouse_pos, mouse_buttons[0], True)
-                if new_val is not None:
-                    self._apply_setting(widget.label, new_val)
-                # 当拖拽结束时保存
-                if just_released and was_dragging:
-                    config.save()
-                    
         if self.timer.active: return SceneStatus.SETTINGS
 
         # 上下选择
@@ -259,13 +220,51 @@ class Settings(Scene):
         elif label == '音效': config.set(value, 'volume', 'sfx')
         elif label == '全屏': 
             config.set(value, 'graphics', 'fullscreen')
-            # 实现即时全屏切换逻辑
+            # 使用 SCALED 配合 FULLSCREEN 是 Pygame 2 在 Mac 上的最佳实践
+            flags = pygame.SCALED
             if value:
-                pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
-            else:
-                pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+                flags |= pygame.FULLSCREEN
+            
+            # 重新设置模式
+            pygame.display.set_mode((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT), flags)
+            self.screen = pygame.display.get_surface()
+            self.screen.blit(self.image, (0, 0))
+            pygame.display.flip()
         elif label == '分辨率':
             config.set(value, 'graphics', 'resolution')
+            # 实现即时分辨率切换
+            try:
+                w, h = map(int, value.split('x'))
+                
+                # 更新全局变量
+                settings.SCREEN_WIDTH = w
+                settings.SCREEN_HEIGHT = h
+                
+                flags = pygame.SCALED
+                if config.get('graphics', 'fullscreen'):
+                    flags |= pygame.FULLSCREEN
+                
+                # 切换显示模式
+                pygame.display.set_mode((w, h), flags)
+                self.screen = pygame.display.get_surface()
+                
+                # 重新计算 UI 布局
+                self.panel_rect = pygame.Rect(w // 2 - 300, h // 2 - 250, 600, 500)
+                background = import_pic('assets/graphics/background/background_blurred.png')
+                self.image = pygame.transform.scale(background, (w, h))
+                
+                # 重新初始化组件以更新它们的位置坐标
+                self.init_widgets()
+                # 保持之前的选中索引
+                self.widgets[self.selection_index].selected = True
+                
+                # 强制刷新画面
+                self.screen.blit(self.image, (0, 0))
+                pygame.display.flip()
+                
+                logger.info(f"Resolution changed to {w}x{h}")
+            except Exception as e:
+                logger.error(f"Error changing resolution: {e}")
 
 
 class RolePicker(Scene):

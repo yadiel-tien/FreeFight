@@ -5,12 +5,16 @@ from core.logger import logger
 
 class ConfigManager:
     _instance = None
-    _config_path = resource_path('config.json')
+    _config_path = resource_path('config/config.json')
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(ConfigManager, cls).__new__(cls)
             cls._instance._load_defaults()
+            # 确保配置目录存在
+            config_dir = os.path.dirname(cls._config_path)
+            if not os.path.exists(config_dir):
+                os.makedirs(config_dir)
             cls._instance.load()
         return cls._instance
 

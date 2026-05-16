@@ -12,7 +12,8 @@ from settings import *
 class Game:
     def __init__(self):
         pygame.init()
-        self.display_surf = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        # 使用 SCALED 标志以获得更好的高分屏支持和全屏稳定性
+        self.display_surf = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SCALED)
         pygame.display.set_caption(GAME_NAME)
         self.clock = pygame.time.Clock()
         self.game_input = GameInput()
