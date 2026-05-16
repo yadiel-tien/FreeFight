@@ -70,21 +70,25 @@ class Controller:
 class KeyBoard(Controller):
     def __init__(self):
         super().__init__()
-
-        self.action_map = {
-            'up': pygame.K_w,
-            'down': pygame.K_s,
-            'left': pygame.K_a,
-            'right': pygame.K_d,
-            'jump': pygame.K_SPACE,
-            'attack': pygame.K_j,
-            'super move 1': pygame.K_u,
-            'super move 2': pygame.K_i,
-            'finisher': pygame.K_t,
-            'confirm': pygame.K_RETURN,
-            'cancel': pygame.K_ESCAPE,
-            'menu': pygame.K_ESCAPE
+        from core.config import config
+        
+        # 定义内部映射名到 pygame 常量的映射
+        self.name_to_key = {
+            'a': pygame.K_a, 'b': pygame.K_b, 'c': pygame.K_c, 'd': pygame.K_d, 'e': pygame.K_e,
+            'f': pygame.K_f, 'g': pygame.K_g, 'h': pygame.K_h, 'i': pygame.K_i, 'j': pygame.K_j,
+            'k': pygame.K_k, 'l': pygame.K_l, 'm': pygame.K_m, 'n': pygame.K_n, 'o': pygame.K_o,
+            'p': pygame.K_p, 'q': pygame.K_q, 'r': pygame.K_r, 's': pygame.K_s, 't': pygame.K_t,
+            'u': pygame.K_u, 'v': pygame.K_v, 'w': pygame.K_w, 'x': pygame.K_x, 'y': pygame.K_y,
+            'z': pygame.K_z, 'space': pygame.K_SPACE, 'return': pygame.K_RETURN, 
+            'escape': pygame.K_ESCAPE, 'backspace': pygame.K_BACKSPACE, 'tab': pygame.K_TAB,
+            'left shift': pygame.K_LSHIFT, 'right shift': pygame.K_RSHIFT
         }
+
+        saved_keys = config.get('controls', 'keyboard')
+        self.action_map = {}
+        for action, key_name in saved_keys.items():
+            self.action_map[action] = self.name_to_key.get(key_name.lower(), pygame.K_UNKNOWN)
+            
         self.release_all()
 
     def update(self, event: pygame.event.Event) -> None:
@@ -103,25 +107,17 @@ class KeyBoard(Controller):
 class Joystick(Controller):
     def __init__(self, joystick: pygame.joystick.JoystickType):
         super().__init__()
+        from core.config import config
+        
         self.key_map = {'A': 0, 'B': 1, 'X': 2, 'Y': 3, '-': 4, 'Home': 5, '+': 6, 'left stick down': 7,
                         'right stick down': 8, 'left bumper': 9, 'right bumper': 10, 'cross up': 11,
                         'cross down': 12, 'cross left': 13, 'cross right': 14, 'capture': 15,
                         'left stick horizontal': 0, 'left stick vertical': 1, 'right stick horizontal': 2,
                         'right stick vertical': 3, 'left trigger': 4, 'right trigger': 5}
-        self.action_map = {
-            'up': self.key_map['cross up'],
-            'down': self.key_map['cross down'],
-            'left': self.key_map['cross left'],
-            'right': self.key_map['cross right'],
-            'jump': self.key_map['A'],
-            'attack': self.key_map['X'],
-            'super move 1': self.key_map['Y'],
-            'super move 2': self.key_map['B'],
-            'finisher': self.key_map['right bumper'],
-            'confirm': self.key_map['A'],
-            'cancel': self.key_map['B'],
-            'menu': self.key_map['+']
-        }
+        
+        # 从配置中加载手柄映射
+        self.action_map = config.get('controls', 'joystick')
+        
         self.release_all()
         self.joystick = joystick
         self.button_count = joystick.get_numbuttons()

@@ -5,7 +5,7 @@ import pygame
 from ui.components.dialogue import Dialogue
 from core.input import GameInput
 from scenes.level import Level
-from scenes.scene import SceneStatus, Home, RolePicker
+from scenes.scene import SceneStatus, Home, RolePicker, Settings
 from settings import *
 
 
@@ -36,6 +36,8 @@ class Game:
                     self.scene = RolePicker(self.game_input)
                 elif self.next_scene == SceneStatus.FIGHTING:
                     self.scene = Level(self.game_input)
+                elif self.next_scene == SceneStatus.SETTINGS:
+                    self.scene = Settings(self.game_input)
 
                 # 更新场景状态
                 self.current_scene = self.next_scene

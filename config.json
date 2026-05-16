@@ -1,0 +1,42 @@
+{
+    "volume": {
+        "master": 0.7642857142857142,
+        "music": 0.6214285714285714,
+        "sfx": 0.5357142857142857
+    },
+    "graphics": {
+        "fullscreen": false,
+        "resolution": "1280x720",
+        "vsync": true
+    },
+    "controls": {
+        "keyboard": {
+            "left": "a",
+            "right": "d",
+            "up": "w",
+            "down": "s",
+            "attack": "j",
+            "jump": "k",
+            "super move 1": "u",
+            "super move 2": "i",
+            "finisher": "t",
+            "confirm": "return",
+            "cancel": "escape",
+            "menu": "escape"
+        },
+        "joystick": {
+            "up": 11,
+            "down": 12,
+            "left": 13,
+            "right": 14,
+            "jump": 0,
+            "attack": 2,
+            "super move 1": 3,
+            "super move 2": 1,
+            "finisher": 10,
+            "confirm": 0,
+            "cancel": 1,
+            "menu": 6
+        }
+    }
+}
