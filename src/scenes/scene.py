@@ -10,6 +10,8 @@ from settings import *
 from ui.text import Menu
 from core.timer import Timer
 from ui.ui import Particles
+from ui.components.widgets import Slider, Selector, KeyBinder, Button, Toggle
+from core.config import config
 
 
 class SceneStatus(Enum):
@@ -81,8 +83,6 @@ class Home(Scene):
 class Settings(Scene):
     def __init__(self, game_input: GameInput):
         super().__init__(game_input)
-        from core.config import config
-        from ui.components.widgets import Slider, Selector, KeyBinder, Button
         
         background = import_pic('assets/graphics/background/background_blurred.png')
         self.image = pygame.transform.scale(background, (SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -102,8 +102,6 @@ class Settings(Scene):
         self.dialogue = Dialogue(game_input)
 
     def init_widgets(self):
-        from core.config import config
-        from ui.components.widgets import Slider, Selector, KeyBinder, Button, Toggle
         x, y = self.panel_rect.x + 50, self.panel_rect.y + 100
         self.widgets = [
             Slider('主音量', (x, y), config.get('volume', 'master')),
@@ -119,7 +117,6 @@ class Settings(Scene):
     def run(self, dt) -> SceneStatus:
         if self.dialogue.showing:
             if self.dialogue.run():
-                from core.config import config
                 config.reset_to_defaults()
                 self.init_widgets() # 重新加载组件状态
             return SceneStatus.SETTINGS
@@ -138,9 +135,6 @@ class Settings(Scene):
         return self.handle_input()
 
     def handle_input(self):
-        from core.config import config
-        from ui.components.widgets import Slider, Button
-        
         # 使用第一个可用的控制器
         ctrl = None
         for dic in self.game_input.controllers.values():
@@ -151,51 +145,9 @@ class Settings(Scene):
 
         self.timer.update()
         
-        # --- 鼠标交互处理 ---
-        mouse_pos = pygame.mouse.get_pos()
-        mouse_buttons = pygame.mouse.get_pressed()
-        
-        # 记录上一帧的鼠标左键状态，用于判断是否刚刚松开
-        if not hasattr(self, '_last_mouse_down'):
-            self._last_mouse_down = False
-        just_released = self._last_mouse_down and not mouse_buttons[0]
-        self._last_mouse_down = mouse_buttons[0]
-        
-        for i, widget in enumerate(self.widgets):
-            if widget.rect.inflate(100 if isinstance(widget, Button) else 200, 10).collidepoint(mouse_pos):
-                self.widgets[self.selection_index].selected = False
-                self.selection_index = i
-                widget.selected = True
-                
-                # 鼠标点击按钮
-                if mouse_buttons[0] and isinstance(widget, Button) and not self.timer.active:
-                    self.dialogue.show('确定要恢复默认设置吗？')
-                    self.timer.activate()
-                # 鼠标点击普通项模拟确认键
-                elif mouse_buttons[0] and not isinstance(widget, Slider) and not isinstance(widget, Button) and not self.timer.active:
-                    if hasattr(widget, 'waiting_for_input'):
-                        widget.waiting_for_input = True
-                        self.timer.activate()
-                    elif isinstance(widget, (Selector, Toggle)):
-                        val = widget.update_value('right')
-                        self._apply_setting(widget.label, val)
-                        config.save() # 开关操作通常立即存档
-                        self.timer.activate()
-
-            if isinstance(widget, Slider):
-                was_dragging = widget.dragging
-                new_val = widget.handle_mouse(mouse_pos, mouse_buttons[0], True)
-                if new_val is not None:
-                    self._apply_setting(widget.label, new_val)
-                # 当拖拽结束（松开鼠标）且刚才确实在拖动这个滑块时，执行一次存档
-                if just_released and was_dragging and not widget.dragging:
-                    config.save()
-                    
-        if self.timer.active: return SceneStatus.SETTINGS
-        
-        # 处理按键绑定等待
+        # 处理按键绑定等待 (键盘 + 手柄)
         current_widget = self.widgets[self.selection_index]
-        if hasattr(current_widget, 'waiting_for_input') and current_widget.waiting_for_input:
+        if isinstance(current_widget, KeyBinder) and current_widget.waiting_for_input:
             # 监听键盘
             for event in pygame.event.get(pygame.KEYDOWN):
                 if not current_widget.is_joystick:
@@ -215,8 +167,52 @@ class Settings(Scene):
                     config.set(btn_id, 'controls', 'joystick', 'attack')
                     self.timer.activate()
                 return SceneStatus.SETTINGS
-
+            
             return SceneStatus.SETTINGS
+
+        # --- 鼠标交互处理 ---
+        mouse_pos = pygame.mouse.get_pos()
+        mouse_buttons = pygame.mouse.get_pressed()
+        
+        # 记录上一帧的鼠标左键状态，用于判断是否刚刚松开
+        if not hasattr(self, '_last_mouse_down'):
+            self._last_mouse_down = False
+        just_released = self._last_mouse_down and not mouse_buttons[0]
+        self._last_mouse_down = mouse_buttons[0]
+        
+        for i, widget in enumerate(self.widgets):
+            # 鼠标碰撞检测：扩大一点判定范围方便操作
+            hover_rect = widget.rect.inflate(100 if isinstance(widget, Button) else 200, 10)
+            if hover_rect.collidepoint(mouse_pos):
+                self.widgets[self.selection_index].selected = False
+                self.selection_index = i
+                widget.selected = True
+                
+                # 鼠标点击处理
+                if mouse_buttons[0] and not self.timer.active:
+                    if isinstance(widget, Button):
+                        self.dialogue.show('确定要恢复默认设置吗？')
+                        self.timer.activate()
+                    elif hasattr(widget, 'waiting_for_input'):
+                        widget.waiting_for_input = True
+                        self.timer.activate()
+                    elif isinstance(widget, (Selector, Toggle)):
+                        val = widget.update_value('right')
+                        self._apply_setting(widget.label, val)
+                        config.save() 
+                        self.timer.activate()
+
+            # 滑动条特殊处理 (即使鼠标不在 rect 内，只要在拖拽中也要处理)
+            if isinstance(widget, Slider):
+                was_dragging = widget.dragging
+                new_val = widget.handle_mouse(mouse_pos, mouse_buttons[0], True)
+                if new_val is not None:
+                    self._apply_setting(widget.label, new_val)
+                # 当拖拽结束时保存
+                if just_released and was_dragging:
+                    config.save()
+                    
+        if self.timer.active: return SceneStatus.SETTINGS
 
         # 上下选择
         if ctrl.performed('up'):
@@ -258,14 +254,16 @@ class Settings(Scene):
         return SceneStatus.SETTINGS
 
     def _apply_setting(self, label, value):
-        from core.config import config
         if label == '主音量': config.set(value, 'volume', 'master')
         elif label == '音乐': config.set(value, 'volume', 'music')
         elif label == '音效': config.set(value, 'volume', 'sfx')
         elif label == '全屏': 
-            is_full = True if value == '开' else False
-            config.set(is_full, 'graphics', 'fullscreen')
-            # 实际切换逻辑需要调用 pygame.display.set_mode
+            config.set(value, 'graphics', 'fullscreen')
+            # 实现即时全屏切换逻辑
+            if value:
+                pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
+            else:
+                pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         elif label == '分辨率':
             config.set(value, 'graphics', 'resolution')
 

@@ -1,8 +1,8 @@
 {
     "volume": {
         "master": 0.7642857142857142,
-        "music": 0.6214285714285714,
-        "sfx": 0.5357142857142857
+        "music": 0.0,
+        "sfx": 0.0
     },
     "graphics": {
         "fullscreen": false,

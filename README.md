@@ -34,15 +34,26 @@ FreeFight is a 2D fighting game built with Python and the Pygame library. It fea
    git clone https://github.com/yourusername/FreeFight.git
    cd FreeFight
    ```
-2. Install dependencies:
+2. Set up a virtual environment (recommended):
+   - **Windows:**
+     ```bash
+     python -m venv .venv
+     .venv\Scripts\activate
+     ```
+   - **macOS/Linux:**
+     ```bash
+     python3 -m venv .venv
+     source .venv/bin/activate
+     ```
+3. Install dependencies:
    ```bash
    pip install pygame Pillow
    ```
 
 #### Running the Game
-To start the game, run the following command from the root directory:
+To start the game as a module (recommended), run the following command from the root directory:
 ```bash
-python src/main.py
+python -m src.main
 ```
 
 ### Architecture Overview
@@ -90,15 +101,26 @@ FreeFight 是一款使用 Python 和 Pygame 库开发的 2D 格斗游戏。它�
    git clone https://github.com/yourusername/FreeFight.git
    cd FreeFight
    ```
-2. 安装依赖：
+2. 创建并激活虚拟环境（推荐）：
+   - **Windows:**
+     ```bash
+     python -m venv .venv
+     .venv\Scripts\activate
+     ```
+   - **macOS/Linux:**
+     ```bash
+     python3 -m venv .venv
+     source .venv/bin/activate
+     ```
+3. 安装依赖：
    ```bash
    pip install pygame Pillow
    ```
 
 #### 运行游戏
-在根目录下运行以下命令启动游戏：
+推荐以模块方式启动游戏，在根目录下运行以下命令：
 ```bash
-python src/main.py
+python -m src.main
 ```
 
 ### 架构概览

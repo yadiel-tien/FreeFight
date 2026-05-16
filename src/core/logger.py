@@ -12,10 +12,33 @@ if not os.path.exists(LOG_DIR):
 log_filename = datetime.now().strftime("game_%Y%m%d_%H%M%S.log")
 log_path = os.path.join(LOG_DIR, log_filename)
 
+def cleanup_old_logs(retention_days=30):
+    """
+    清理超过指定天数的旧日志文件
+    """
+    try:
+        now = datetime.now().timestamp()
+        count = 0
+        for filename in os.listdir(LOG_DIR):
+            if filename.endswith(".log"):
+                file_path = os.path.join(LOG_DIR, filename)
+                file_time = os.path.getmtime(file_path)
+                # 计算文件年龄（秒）
+                if (now - file_time) > (retention_days * 24 * 3600):
+                    os.remove(file_path)
+                    count += 1
+        if count > 0:
+            logging.info(f"Auto-cleanup: Removed {count} old log files.")
+    except Exception as e:
+        print(f"Error during log cleanup: {e}")
+
 def setup_logger():
     """
     配置全局日志系统
     """
+    # 启动时先清理旧日志
+    cleanup_old_logs(30)
+    
     logger = logging.getLogger('FreeFight')
     logger.setLevel(logging.DEBUG)
 
