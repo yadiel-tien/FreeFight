@@ -58,9 +58,10 @@ class Player(pygame.sprite.Sprite):
         self.image = pygame.transform.flip(scaled, self.to_right, False)
 
     def update(self, dt):
-        self.handle_input()
+        if dt > 0:
+            self.handle_input()
+            self.mov(dt)
         self.update_image(dt)
-        self.mov(dt)
         self.blood_ui.display()
 
     def mov(self, dt):

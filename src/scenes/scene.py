@@ -75,6 +75,12 @@ class Home(Scene):
             return SceneStatus.HOME
 
         if dt > 0:
+            # 快捷键：在主界面按 B (Cancel) 直接跳转到退出选项
+            for device_info in self.game_input.controllers.values():
+                if device_info['controller'].ui_performed('cancel') and not device_info['timer'].active:
+                    self.menu.selected_index = len(self.menu.options) - 1
+                    device_info['timer'].activate()
+
             res = self.menu.handle_input()
             if res[0] != -1:
                 index, instance_id = res

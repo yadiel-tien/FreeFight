@@ -52,25 +52,32 @@ class Game:
             # 2. 事件处理
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
+                    # 点击窗口关闭按钮，默认由键盘设备处理
                     self.dialogue.show('确定要退出吗？', self.game_input.controllers[-1])
                 self.game_input.update(event)
 
             # 3. 渲染流程：
+            # A. 清空画布
             self.display_surf.fill('black')
             
+            # B. 检查是否有弹窗显示 (全局或场景内部)
             scene_dialogue_showing = hasattr(self.scene, 'dialogue') and self.scene.dialogue.showing
             is_paused = self.dialogue.showing or scene_dialogue_showing
             
-            # 绘制场景层 (传入 dt=0 实现暂停效果)
-            # 场景内部自行处理其弹窗的渲染和逻辑返回
-            self.next_scene = self.scene.run(0 if is_paused else dt)
+            # C. 绘制场景层 (传入 dt=0 实现暂停效果)
+            # 即使在暂停状态下，也要运行场景逻辑以保持渲染
+            res = self.scene.run(0 if is_paused else dt)
             
-            # 4. 叠加全局弹窗图层 (最高优先级)
+            # 核心修复：无论是否处于暂停状态，如果场景返回了非当前场景的状态，必须立刻响应
+            if res != self.current_scene:
+                self.next_scene = res
+            
+            # D. 处理全局弹窗层 (仅处理窗口关闭请求)
             if self.dialogue.showing:
                 if self.dialogue.run():
                     self.next_scene = SceneStatus.EXIT
 
-            # 5. 最终渲染到实际窗口
+            # 4. 最终渲染到实际窗口
             window_w, window_h = self.window.get_size()
             scale = min(window_w / SCREEN_WIDTH, window_h / SCREEN_HEIGHT)
             new_size = (int(SCREEN_WIDTH * scale), int(SCREEN_HEIGHT * scale))

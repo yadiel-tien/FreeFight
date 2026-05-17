@@ -21,7 +21,12 @@ class Controller:
         self.key_released: dict[int, bool] = {}
 
     def release_all(self) -> None:
+        # 重置所有战斗动作映射的释放状态
         for key in self.action_map.values():
+            if key != pygame.K_UNKNOWN:
+                self.key_released[key] = True
+        # 强制重置底层所有物理按键的释放状态 (关键：解决弹窗双击问题)
+        for key in self.key_released:
             self.key_released[key] = True
 
     def handle_keyup(self, event: pygame.event.Event, is_keyboard: bool) -> None:
