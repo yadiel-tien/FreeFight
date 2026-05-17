@@ -58,6 +58,7 @@ class Home(Scene):
             {'zh_CN': '退出', 'en_US': 'EXIT'}
         ]
         self.menu = Menu(options, game_input, (120, 200), self.screen, center_at=200, show_back=False)
+        # 恢复之前的选中项
         self.menu.selected_index = getattr(game_input, 'home_menu_index', 0)
         self.sparkles = Particles(0.05, self.screen)
         self.dialogue = Dialogue(game_input, self.screen)
@@ -75,24 +76,31 @@ class Home(Scene):
             return SceneStatus.HOME
 
         if dt > 0:
-            # 快捷键：在主界面按 B (Cancel) 直接跳转到退出选项
-            for device_info in self.game_input.controllers.values():
-                if device_info['controller'].ui_performed('cancel') and not device_info['timer'].active:
+            return self.handle_input()
+        return SceneStatus.HOME
+
+    def handle_input(self) -> SceneStatus:
+        # 快捷键：在主界面按 B (Cancel) 直接跳转到退出选项
+        # 移入 handle_input 以保证和普通输入逻辑一致，避免“按键穿透”
+        for device_info in self.game_input.controllers.values():
+            ctrl = device_info['controller']
+            if not device_info['timer'].active:
+                if ctrl.ui_performed('cancel'):
                     self.menu.selected_index = len(self.menu.options) - 1
                     device_info['timer'].activate()
 
-            res = self.menu.handle_input()
-            if res[0] != -1:
-                index, instance_id = res
-                if index == 4:
-                    lang = config.get('system', 'language')
-                    msg = '确定要退出吗？' if lang == 'zh_CN' else 'Are you sure you want to quit?'
-                    self.dialogue.show(msg, self.game_input.controllers[instance_id])
-                elif index == 0: return SceneStatus.CHOOSE_ROLE
-                elif index == 3:
-                    self.game_input.last_active_id = instance_id
-                    self.game_input.home_menu_index = index
-                    return SceneStatus.SETTINGS
+        res = self.menu.handle_input()
+        if res[0] != -1:
+            index, instance_id = res
+            if index == 4:
+                lang = config.get('system', 'language')
+                msg = '确定要退出吗？' if lang == 'zh_CN' else 'Are you sure you want to quit?'
+                self.dialogue.show(msg, self.game_input.controllers[instance_id])
+            elif index == 0: return SceneStatus.CHOOSE_ROLE
+            elif index == 3:
+                self.game_input.last_active_id = instance_id
+                self.game_input.home_menu_index = index
+                return SceneStatus.SETTINGS
         return SceneStatus.HOME
 
 
@@ -101,27 +109,33 @@ class Settings(Scene):
         super().__init__(game_input, surface)
         background = import_pic('assets/graphics/background/background_blurred.png')
         self.image = pygame.transform.scale(background, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        
         self.panel_rect = pygame.Rect(SCREEN_WIDTH // 2 - 400, 80, 800, 560)
         self.panel_surf = pygame.Surface(self.panel_rect.size, pygame.SRCALPHA)
         self.panel_surf.fill((0, 0, 0, 240))
+        
         self.box_padding = 40 
         self.content_box_rect = pygame.Rect(self.panel_rect.x + 40, self.panel_rect.y + 95, 720, 360)
+        
         self.active_id = getattr(game_input, 'last_active_id', -1)
         self.is_joystick = (self.active_id != -1)
-        self.scroll_y, self.target_scroll_y, self.max_scroll_y = 0, 0, 0
+        
         path = resource_path('assets/font/SimHei.ttf')
         self.font_tab = pygame.font.Font(path, 18) 
         self.font_hint = pygame.font.Font(path, 18)
+        
         self.tabs = [
             {'id': 'system', 'label': {'zh_CN': '系统设定', 'en_US': 'SYSTEM'}},
             {'id': 'audio', 'label': {'zh_CN': '声音调节', 'en_US': 'AUDIO'}},
             {'id': 'controls', 'label': {'zh_CN': '按键映射', 'en_US': 'CONTROLS'}},
             {'id': 'advanced', 'label': {'zh_CN': '高级选项', 'en_US': 'ADVANCED'}}
         ]
+        
         self.tab_scroll_y = {tab['id']: 0 for tab in self.tabs}
         self.tab_target_scroll_y = {tab['id']: 0 for tab in self.tabs}
         self.current_tab_index = getattr(game_input, 'settings_tab_index', 0)
         self.selection_index = getattr(game_input, 'settings_selection_index', 0) 
+        
         self.init_widgets()
         self.timer = Timer(200) 
         self.dialogue = Dialogue(game_input, self.screen)
@@ -131,14 +145,12 @@ class Settings(Scene):
         self.tab_content_heights = {tab['id']: 0 for tab in self.tabs}
         x_widget, y_start = self.content_box_rect.x + 60, self.content_box_rect.y + self.box_padding
         
-        # System
         y = y_start
         self.tab_widgets['system'].append(Selector({'zh_CN': '界面语言', 'en_US': 'LANGUAGE'}, (x_widget, y), ['简体中文', 'English'], 0 if config.get('system', 'language') == 'zh_CN' else 1))
         y += 60
         self.tab_widgets['system'].append(Toggle({'zh_CN': '全屏显示', 'en_US': 'FULLSCREEN'}, (x_widget, y), config.get('graphics', 'fullscreen')))
         self.tab_content_heights['system'] = y + 40 - y_start
 
-        # Audio
         y = y_start
         self.tab_widgets['audio'].extend([
             Slider({'zh_CN': '主音量', 'en_US': 'MASTER'}, (x_widget, y), config.get('volume', 'master')),
@@ -147,7 +159,6 @@ class Settings(Scene):
         ])
         self.tab_content_heights['audio'] = 140
         
-        # Controls (Only battle actions)
         y = y_start
         dev_key = 'joystick' if self.is_joystick else 'keyboard'
         ctrl = self.game_input.controllers[self.active_id]['controller'] if self.is_joystick else None
@@ -163,7 +174,6 @@ class Settings(Scene):
             y += 50
         self.tab_content_heights['controls'] = y - y_start
             
-        # Advanced
         y = y_start
         self.tab_widgets['advanced'].extend([Button({'zh_CN': '重置窗口', 'en_US': 'RESET WINDOW'}, (x_widget, y)), Button({'zh_CN': '恢复默认', 'en_US': 'RESTORE ALL'}, (x_widget, y + 60))])
         self.tab_content_heights['advanced'] = 105
@@ -181,7 +191,6 @@ class Settings(Scene):
         self.screen.blit(self.panel_surf, self.panel_rect)
         lang = config.get('system', 'language')
         
-        # Tabs
         tx = self.panel_rect.x + 50
         for i, tab in enumerate(self.tabs):
             is_active = (i == self.current_tab_index)
@@ -192,7 +201,6 @@ class Settings(Scene):
             self.screen.blit(txt, txt.get_rect(center=(tx + 85, self.panel_rect.y + 40 + 17)))
             tx += 180
 
-        # Widgets
         active_tab_id = self.tabs[self.current_tab_index]['id']
         aw = self.tab_widgets[active_tab_id]
         viewport_h = 360
@@ -200,16 +208,13 @@ class Settings(Scene):
         
         self.content_box_rect.h = min(viewport_h, th)
         pygame.draw.rect(self.screen, (100, 100, 100), self.content_box_rect, 1, border_radius=12)
-        
         self.tab_scroll_y[active_tab_id] += (self.tab_target_scroll_y[active_tab_id] - self.tab_scroll_y[active_tab_id]) * 0.1
         
         old_clip = self.screen.get_clip()
         self.screen.set_clip(self.content_box_rect.inflate(-20, -20))
-        for w in aw: 
-            w.draw(self.screen, self.tab_scroll_y[active_tab_id])
+        for w in aw: w.draw(self.screen, self.tab_scroll_y[active_tab_id])
         self.screen.set_clip(old_clip)
         
-        # 绘制底部提示
         if self.is_joystick:
             active_controller = self.game_input.controllers[self.active_id]['controller']
             l_text, r_text = active_controller.get_button_name(9), active_controller.get_button_name(10)
@@ -235,6 +240,7 @@ class Settings(Scene):
                     if '恢复' in label or 'RESTORE' in label:
                         config.reset_to_defaults()
                         self.init_widgets()
+                        self.game_input.refresh_all_maps()
                     elif '重置' in label or 'RESET' in label:
                         pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
                         config.set(False, 'graphics', 'fullscreen')
@@ -253,7 +259,7 @@ class Settings(Scene):
             active_tab_id = self.tabs[self.current_tab_index]['id']
             aw = self.tab_widgets[active_tab_id]
             cw = aw[self.selection_index]
-            
+
             if isinstance(cw, KeyBinder) and cw.waiting_for_input:
                 new_val = None
                 for event in pygame.event.get(pygame.KEYDOWN): new_val = pygame.key.name(event.key)
@@ -279,7 +285,7 @@ class Settings(Scene):
             elif ctrl.ui_performed('down') and self.selection_index < len(aw) - 1: 
                 self.selection_index += 1
                 self._refresh_selection(); self._ensure_visible(); self.timer.activate()
-            
+
             elif (ctrl.ui_performed('left') or ctrl.ui_performed('right')) and isinstance(cw, (Slider, Selector)):
                 val = cw.update_value('left' if ctrl.ui_performed('left') else 'right')
                 self._apply_setting(cw, val); self.timer.activate()
@@ -290,28 +296,24 @@ class Settings(Scene):
                 elif isinstance(cw, Toggle): self._apply_setting(cw, cw.update_value())
                 self.timer.activate()
             elif ctrl.ui_performed('cancel'):
-                config.save(); self.game_input.refresh_all_maps(); return SceneStatus.HOME
+                config.save()
+                self.game_input.home_menu_index = 3
+                return SceneStatus.HOME
         return SceneStatus.SETTINGS
 
     def _ensure_visible(self):
         active_tab_id = self.tabs[self.current_tab_index]['id']
         w = self.tab_widgets[active_tab_id][self.selection_index]
-        viewport_h = 360
         th = self.tab_content_heights[active_tab_id] + (self.box_padding * 2)
-        
-        if th <= viewport_h:
+        if th <= 360:
             self.tab_target_scroll_y[active_tab_id] = 0
             return
-
         vt, vb = self.content_box_rect.y + self.box_padding, self.content_box_rect.bottom - self.box_padding
         ry = w.pos[1] - self.tab_scroll_y[active_tab_id]
-        
         target = self.tab_target_scroll_y[active_tab_id]
         if ry < vt: target = w.pos[1] - vt
         elif ry + w.size[1] > vb: target = w.pos[1] + w.size[1] - vb
-        
-        max_scroll = th - viewport_h
-        self.tab_target_scroll_y[active_tab_id] = max(0, min(target, max_scroll))
+        self.tab_target_scroll_y[active_tab_id] = max(0, min(target, th - 360))
 
     def _apply_setting(self, widget, value):
         l = widget.get_label()
@@ -399,7 +401,6 @@ class RoleDetailItem(pygame.sprite.Sprite):
         self.rect = pygame.Rect(rect)
         self.alpha_background, self.image = pygame.Surface(self.rect.size, pygame.SRCALPHA), pygame.Surface(self.rect.size, pygame.SRCALPHA)
         lang = config.get('system', 'language')
-        
         if self.device_info:
             ctrl = self.device_info['controller']
             if hasattr(ctrl, 'get_button_name'): hint = ctrl.get_button_name(0)
@@ -413,7 +414,6 @@ class RoleDetailItem(pygame.sprite.Sprite):
                     else: available_hints.append("⏎")
             hint = " / ".join(sorted(list(set(available_hints)))) if available_hints else "---"
         else: hint = "⏎"
-            
         self.text_surf = Menu.get_tip_surf(hint, '加入游戏' if lang == 'zh_CN' else 'JOIN')
         t_rect = self.text_surf.get_rect(midbottom=self.rect.midbottom).move(0, -50)
         self.text_offset = t_rect.x - self.rect.x, t_rect.y - self.rect.y
