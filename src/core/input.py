@@ -105,7 +105,8 @@ class KeyBoard(Controller):
             'left alt': pygame.K_LALT, 'right alt': pygame.K_RALT,
             'page up': pygame.K_PAGEUP, 'page down': pygame.K_PAGEDOWN,
             'home': pygame.K_HOME, 'end': pygame.K_END, 'insert': pygame.K_INSERT, 'delete': pygame.K_DELETE,
-            'up': pygame.K_UP, 'down': pygame.K_DOWN, 'left': pygame.K_LEFT, 'right': pygame.K_RIGHT
+            'up': pygame.K_UP, 'down': pygame.K_DOWN, 'left': pygame.K_LEFT, 'right': pygame.K_RIGHT,
+            'm': pygame.K_m
         }
         self.refresh_map()
 
@@ -127,7 +128,7 @@ class KeyBoard(Controller):
         for action, key in self.action_map.items():
             self.execute[action] = keys[key] if key != pygame.K_UNKNOWN else False
 
-        # UI 动作状态
+        # UI 动作状态 (键盘解耦)
         self.ui_execute['up'] = keys[pygame.K_UP]
         self.ui_execute['down'] = keys[pygame.K_DOWN]
         self.ui_execute['left'] = keys[pygame.K_LEFT]
@@ -135,15 +136,15 @@ class KeyBoard(Controller):
         self.ui_execute['tab_left'] = keys[pygame.K_q]
         self.ui_execute['tab_right'] = keys[pygame.K_e]
         self.ui_execute['confirm'] = keys[pygame.K_RETURN]
-        self.ui_execute['cancel'] = keys[pygame.K_ESCAPE]
-        self.ui_execute['menu'] = keys[pygame.K_ESCAPE]
+        self.ui_execute['cancel'] = keys[pygame.K_ESCAPE] # ESC 仅用于返回/取消
+        self.ui_execute['menu'] = keys[pygame.K_m]      # M 键用于开启菜单 (对战中)
 
         self.check_run_status()
 
     def ui_performed(self, action: str) -> bool:
         one_shot_map = {
             'tab_left': pygame.K_q, 'tab_right': pygame.K_e,
-            'confirm': pygame.K_RETURN, 'cancel': pygame.K_ESCAPE, 'menu': pygame.K_ESCAPE
+            'confirm': pygame.K_RETURN, 'cancel': pygame.K_ESCAPE, 'menu': pygame.K_m
         }
         key = one_shot_map.get(action)
         if key and self.ui_execute.get(action, False) and self.key_released.get(key, True):
@@ -319,7 +320,7 @@ class GameInput:
     def _get_action_hint(self, ui_action) -> str:
         hints = []
         if -1 in self.controllers:
-            mapping = {'confirm': '⏎', 'cancel': 'ESC'}
+            mapping = {'confirm': '⏎', 'cancel': 'ESC', 'menu': 'M'}
             hints.append(mapping.get(ui_action, ui_action.upper()))
         joysticks = [d['controller'] for id, d in self.controllers.items() if id != -1]
         if joysticks:

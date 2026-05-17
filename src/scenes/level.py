@@ -32,15 +32,16 @@ class Level(Scene):
                 self.game_input.home_menu_index = 0
                 return SceneStatus.HOME
         else:
-            # 监听系统级退出请求 (ESC 或 手柄菜单键)
+            # 监听系统级退出请求 (仅限手柄菜单键或键盘 ESC)
             # 使用 ui_performed 确保这些键不受玩家战斗设置影响
             for instance_id, device_info in self.game_input.controllers.items():
                 ctrl = device_info['controller']
-                if ctrl.ui_performed('cancel') or ctrl.ui_performed('menu'):
+                if ctrl.ui_performed('menu'):
                     from src.core.config import config
                     lang = config.get('system', 'language')
                     msg = '确定要退出游戏吗？' if lang == 'zh_CN' else 'Quit match?'
                     self.dialogue.show(msg, device_info)
+                    return SceneStatus.FIGHTING # 触发后立即返回，防止当前帧继续向下运行逻辑导致误判关闭
                     
         return SceneStatus.FIGHTING
 
