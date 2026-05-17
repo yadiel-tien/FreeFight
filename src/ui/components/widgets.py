@@ -145,7 +145,10 @@ class KeyBinder(UIWidget):
         elif self.is_joystick and self.controller:
             display_val = self.controller.get_button_name(self.key)
         else:
-            display_val = str(self.key).upper()
+            if str(self.key).lower() in ['return', 'enter']:
+                display_val = "⏎"
+            else:
+                display_val = str(self.key).upper()
             if self.is_joystick:
                 display_val = f"BTN {self.key}"
         
@@ -158,7 +161,10 @@ class KeyBinder(UIWidget):
             if self.is_joystick and self.controller:
                 display_val = self.controller.get_button_name(self.temp_conflict_key)
             else:
-                display_val = str(self.temp_conflict_key).upper()
+                if str(self.temp_conflict_key).lower() in ['return', 'enter']:
+                    display_val = "⏎"
+                else:
+                    display_val = str(self.temp_conflict_key).upper()
                 if self.is_joystick:
                     display_val = f"BTN {self.temp_conflict_key}"
             
@@ -182,9 +188,32 @@ class KeyBinder(UIWidget):
         pygame.draw.rect(surface, (40, 40, 40), k_rect, border_radius=5)
         pygame.draw.rect(surface, color, k_rect, 1, border_radius=5)
         
-        val_txt = self.font.render(display_val, True, color)
-        val_rect = val_txt.get_rect(center=k_rect.center)
-        surface.blit(val_txt, val_rect)
+        # 处理特殊符号绘制
+        has_return = "⏎" in display_val
+        has_circle = "○" in display_val
+        has_square = "□" in display_val
+        has_triangle = "△" in display_val
+        has_menu = "≡" in display_val
+        
+        if any([has_return, has_circle, has_square, has_triangle, has_menu]):
+            # 手动绘制特殊符号
+            cx, cy = k_rect.centerx, k_rect.centery
+            if has_return:
+                pygame.draw.lines(surface, color, False, [(cx+8, cy-8), (cx+8, cy+5), (cx-8, cy+5)], 3)
+                pygame.draw.lines(surface, color, False, [(cx-3, cy), (cx-9, cy+5), (cx-3, cy+10)], 3)
+            elif has_circle:
+                pygame.draw.circle(surface, color, (cx, cy), 10, 3)
+            elif has_square:
+                pygame.draw.rect(surface, color, (cx-9, cy-9, 18, 18), 3)
+            elif has_triangle:
+                pygame.draw.lines(surface, color, True, [(cx, cy-10), (cx-10, cy+8), (cx+10, cy+8)], 3)
+            elif has_menu:
+                for i in range(-7, 8, 7): 
+                    pygame.draw.line(surface, color, (cx-9, cy+i), (cx+9, cy+i), 3)
+        else:
+            val_txt = self.font.render(display_val, True, color)
+            val_rect = val_txt.get_rect(center=k_rect.center)
+            surface.blit(val_txt, val_rect)
 
 class Button(UIWidget):
     def __init__(self, label_dict, pos, size=(400, 45)):

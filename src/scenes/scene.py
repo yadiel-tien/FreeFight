@@ -61,7 +61,7 @@ class Home(Scene):
             {'zh_CN': '选项', 'en_US': 'SETTINGS'},
             {'zh_CN': '退出', 'en_US': 'EXIT'}
         ]
-        self.menu = Menu(options, game_input, (120, 200), self.screen)
+        self.menu = Menu(options, game_input, (120, 200), self.screen, center_at=200, show_back=False)
         # 粒子
         self.sparkles = Particles(0.05, self.screen)
 
@@ -178,8 +178,6 @@ class Settings(Scene):
             ({'zh_CN': '技能1', 'en_US': 'SKILL 1'}, 'super move 1'),
             ({'zh_CN': '技能2', 'en_US': 'SKILL 2'}, 'super move 2'),
             ({'zh_CN': '终结技', 'en_US': 'FINISHER'}, 'finisher'),
-            ({'zh_CN': '确认', 'en_US': 'CONFIRM'}, 'confirm'),
-            ({'zh_CN': '取消', 'en_US': 'CANCEL'}, 'cancel'),
         ]
         for label_dict, action_id in actions:
             current_val = config.get('controls', device_key, action_id)
@@ -274,18 +272,27 @@ class Settings(Scene):
             active_controller = self.game_input.controllers[self.active_id]['controller']
             l_text = "L1" if active_controller.type == 'ps' else "L" if active_controller.type == 'nintendo' else "LB"
             r_text = "R1" if active_controller.type == 'ps' else "R" if active_controller.type == 'nintendo' else "RB"
-            confirm_text = active_controller.get_button_name(0) # 默认 A/Cross/B
+            confirm_hint = active_controller.get_button_name(0)
         else:
             l_text, r_text = "Q", "E"
-            confirm_text = "ENTER"
+            confirm_hint = "⏎"
 
-        if lang == 'zh_CN':
-            hint_text = f" {l_text} {r_text} : 切换标签    ↑ ↓ : 选择    {confirm_text} : 确定    ← → : 调节    ESC : 返回"
-        else:
-            hint_text = f" {l_text} {r_text} : Tabs    ↑ ↓ : Select    {confirm_text} : Confirm    ← → : Adjust    ESC : Back"
+        tab_hint = f"{l_text} {r_text}"
+        esc_hint = "ESC"
         
-        hint_surf = self.font_hint.render(hint_text, True, (150, 150, 150))
-        self.screen.blit(hint_surf, (self.panel_rect.x + 50, self.panel_rect.bottom - 45))
+        # 使用 Menu 的多项渲染逻辑来保持一致
+        hints_data = [
+            (tab_hint, "切换标签" if lang == 'zh_CN' else "TABS"),
+            ("↑ ↓", "选择" if lang == 'zh_CN' else "SELECT"),
+            (confirm_hint, "确定" if lang == 'zh_CN' else "CONFIRM"),
+            ("← →", "调节" if lang == 'zh_CN' else "ADJUST"),
+            (esc_hint, "返回" if lang == 'zh_CN' else "BACK")
+        ]
+        
+        hint_surf = Menu.get_tip_surf_multi(hints_data)
+        # 在设置面板底部水平居中
+        hint_pos = (self.panel_rect.centerx - hint_surf.get_width() // 2, self.panel_rect.bottom - 45)
+        self.screen.blit(hint_surf, hint_pos)
 
         return self.handle_input()
 
@@ -554,8 +561,13 @@ class RoleDetailItem(pygame.sprite.Sprite):
         self.alpha_background = pygame.Surface(self.rect.size, pygame.SRCALPHA)
         self.image = pygame.surface.Surface(self.rect.size, pygame.SRCALPHA)
 
-        # 占位相关提示
-        self.text_surf = Menu.get_tip_surf('A 加入游戏')
+        # 加入提示
+        from src.core.config import config
+        lang = config.get('system', 'language')
+        hint = self.device_info['controller'].get_button_name(0) if self.device_info else "⏎"
+        action = '加入游戏' if lang == 'zh_CN' else 'JOIN'
+
+        self.text_surf = Menu.get_tip_surf(hint, action)
         rect = self.text_surf.get_rect(midbottom=self.rect.midbottom).move(0, -50)
         self.text_offset = rect.x - self.rect.x, rect.y - self.rect.y
 

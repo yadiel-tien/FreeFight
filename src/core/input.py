@@ -174,7 +174,7 @@ class Joystick(Controller):
         # 基础映射 (针对大多数 PC 上的 Xbox 驱动)
         mapping = {
             'xbox': {0: 'A', 1: 'B', 2: 'X', 3: 'Y', 4: 'LB', 5: 'RB', 6: 'Back', 7: 'Start', 8: 'LS', 9: 'RS', 10: 'Home'},
-            'ps': {0: 'Cross', 1: 'Circle', 2: 'Square', 3: 'Triangle', 4: 'L1', 5: 'R1', 6: 'Share', 7: 'Options', 8: 'L3', 9: 'R3', 10: 'PS'},
+            'ps': {0: 'X', 1: '○', 2: '□', 3: '△', 4: 'L1', 5: 'R1', 6: 'Share', 7: 'Options', 8: 'L3', 9: 'R3', 10: 'PS'},
             'nintendo': {0: 'B', 1: 'A', 2: 'Y', 3: 'X', 4: 'L', 5: 'R', 6: '-', 7: '+', 8: 'LS', 9: 'RS', 10: 'Home'}
         }
         
@@ -182,6 +182,10 @@ class Joystick(Controller):
         # 这里的 9 和 10 是本项目硬编码的 tab_left 和 tab_right
         if button_id == 9: return "L1" if self.type == 'ps' else "L" if self.type == 'nintendo' else "LB"
         if button_id == 10: return "R1" if self.type == 'ps' else "R" if self.type == 'nintendo' else "RB"
+        
+        # 特殊处理菜单键 (通常是 7 或 6)
+        if button_id == 7: return "Options" if self.type == 'ps' else "+" if self.type == 'nintendo' else "≡"
+        if button_id == 6: return "Share" if self.type == 'ps' else "−" if self.type == 'nintendo' else "❐"
         
         res = mapping.get(self.type, mapping['xbox']).get(button_id)
         return res if res else f"BTN {button_id}"
@@ -353,6 +357,33 @@ class GameInput:
                     return False
 
         return count > 0
+
+    def get_confirm_hint(self, lang='zh_CN') -> str:
+        return self._get_action_hint('confirm', lang)
+
+    def get_menu_hint(self, lang='zh_CN') -> str:
+        return self._get_action_hint('cancel', lang) # 菜单/返回通常对应 cancel 或 menu 动作
+
+    def _get_action_hint(self, action_id, lang='zh_CN') -> str:
+        has_keyboard = -1 in self.controllers
+        joysticks = [d['controller'] for id, d in self.controllers.items() if id != -1]
+        
+        hints = []
+        if has_keyboard:
+            kb_key = self.controllers[-1]['controller'].action_map.get(action_id)
+            if kb_key == pygame.K_RETURN: hints.append("⏎")
+            elif kb_key == pygame.K_ESCAPE: hints.append("ESC")
+            elif kb_key: hints.append(pygame.key.name(kb_key).upper())
+        
+        if joysticks:
+            # 获取该动作在不同手柄上的按键名
+            btn_names = []
+            for j in joysticks:
+                btn_id = j.action_map.get(action_id)
+                btn_names.append(j.get_button_name(btn_id))
+            hints.append("/".join(sorted(list(set(btn_names)))))
+        
+        return " / ".join(hints)
 
     def reset(self) -> None:
         for ctrl in self.controllers.values():
