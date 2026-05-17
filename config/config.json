@@ -1,8 +1,11 @@
 {
+    "system": {
+        "language": "zh_CN"
+    },
     "volume": {
-        "master": 0.8142857142857143,
-        "music": 0.44285714285714284,
-        "sfx": 0.29285714285714287
+        "master": 0.8,
+        "music": 0.7,
+        "sfx": 0.9
     },
     "graphics": {
         "fullscreen": false,
@@ -15,14 +18,16 @@
             "right": "d",
             "up": "w",
             "down": "s",
-            "attack": "u",
+            "attack": "j",
             "jump": "k",
             "super move 1": "u",
             "super move 2": "i",
             "finisher": "t",
             "confirm": "return",
             "cancel": "escape",
-            "menu": "escape"
+            "menu": "escape",
+            "tab_left": "q",
+            "tab_right": "e"
         },
         "joystick": {
             "up": 11,
@@ -36,7 +41,9 @@
             "finisher": 10,
             "confirm": 0,
             "cancel": 1,
-            "menu": 6
+            "menu": 6,
+            "tab_left": 9,
+            "tab_right": 10
         }
     }
 }

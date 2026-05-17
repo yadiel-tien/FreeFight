@@ -1,7 +1,7 @@
 import json
 import os
-from core.support import resource_path
-from core.logger import logger
+from src.core.support import resource_path
+from src.core.logger import logger
 
 class ConfigManager:
     _instance = None
@@ -20,6 +20,9 @@ class ConfigManager:
 
     def _load_defaults(self):
         self.config = {
+            'system': {
+                'language': 'zh_CN'
+            },
             'volume': {
                 'master': 0.8,
                 'music': 0.7,
@@ -43,7 +46,9 @@ class ConfigManager:
                     'finisher': 't',
                     'confirm': 'return',
                     'cancel': 'escape',
-                    'menu': 'escape'
+                    'menu': 'escape',
+                    'tab_left': 'q',
+                    'tab_right': 'e'
                 },
                 'joystick': {
                     'up': 11,
@@ -57,7 +62,9 @@ class ConfigManager:
                     'finisher': 10,
                     'confirm': 0,
                     'cancel': 1,
-                    'menu': 6
+                    'menu': 6,
+                    'tab_left': 9,
+                    'tab_right': 10
                 }
             }
         }

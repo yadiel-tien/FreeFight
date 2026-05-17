@@ -3,17 +3,17 @@ import os.path
 import pygame
 from enum import Enum
 
-from ui.components.dialogue import Dialogue
-from core.input import GameInput
-from core.support import import_folder_dict, resource_path, import_pic, import_gif
-from settings import *
-from ui.text import Menu
-from core.timer import Timer
-from ui.ui import Particles
-from ui.components.widgets import Slider, Selector, KeyBinder, Button, Toggle
-from core.config import config
-from core.logger import logger
-import settings
+from src.ui.components.dialogue import Dialogue
+from src.core.input import GameInput
+from src.core.support import import_folder_dict, resource_path, import_pic, import_gif
+from src.settings import *
+from src.ui.text import Menu
+from src.core.timer import Timer
+from src.ui.ui import Particles
+from src.ui.components.widgets import Slider, Selector, KeyBinder, Button, Toggle, Header
+from src.core.config import config
+from src.core.logger import logger
+import src.settings as settings
 
 
 class SceneStatus(Enum):
@@ -27,8 +27,8 @@ class SceneStatus(Enum):
 
 
 class Scene:
-    def __init__(self, game_input: GameInput):
-        self.screen = pygame.display.get_surface()
+    def __init__(self, game_input: GameInput, surface: pygame.Surface):
+        self.screen = surface
         self.game_input = game_input
 
     def run(self, dt) -> SceneStatus:
@@ -39,8 +39,8 @@ class Scene:
 
 
 class Home(Scene):
-    def __init__(self, game_input: GameInput):
-        super().__init__(game_input)
+    def __init__(self, game_input: GameInput, surface: pygame.Surface):
+        super().__init__(game_input, surface)
         # 背景图
         image = pygame.image.load(resource_path('assets/graphics/background/background_blurred.png'))
         self.image = pygame.transform.scale(image, (SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -54,12 +54,18 @@ class Home(Scene):
         self.menu_surf = pygame.Surface(self.menu_rect.size, pygame.SRCALPHA)
         self.menu_surf.fill((0, 0, 0, 214))
         # 菜单
-        options = ['对战', '操作', '角色', '选项', '退出']
-        self.menu = Menu(options, game_input, (120, 200))
+        options = [
+            {'zh_CN': '对战', 'en_US': 'BATTLE'},
+            {'zh_CN': '操作', 'en_US': 'HOW TO PLAY'},
+            {'zh_CN': '角色', 'en_US': 'CHARACTERS'},
+            {'zh_CN': '选项', 'en_US': 'SETTINGS'},
+            {'zh_CN': '退出', 'en_US': 'EXIT'}
+        ]
+        self.menu = Menu(options, game_input, (120, 200), self.screen)
         # 粒子
-        self.sparkles = Particles(0.05)
+        self.sparkles = Particles(0.05, self.screen)
 
-        self.dialogue = Dialogue(game_input)
+        self.dialogue = Dialogue(game_input, self.screen)
 
     def run(self, dt) -> SceneStatus:
         if self.dialogue.showing:
@@ -72,208 +78,360 @@ class Home(Scene):
             self.menu.display()
             self.screen.blit(self.title_surf, (500, 250))
 
-            index = self.menu.handle_input()
-            if index == 4:
-                self.dialogue.show('确定要退出吗？')
-            elif index == 0:
-                return SceneStatus.CHOOSE_ROLE
-            elif index == 3:
-                return SceneStatus.SETTINGS
+            res = self.menu.handle_input()
+            if res[0] != -1:
+                index, instance_id = res
+                if index == 4:
+                    lang = config.get('system', 'language')
+                    msg = '确定要退出吗？' if lang == 'zh_CN' else 'Are you sure you want to quit?'
+                    self.dialogue.show(msg)
+                elif index == 0:
+                    return SceneStatus.CHOOSE_ROLE
+                elif index == 3:
+                    # 记录是哪个设备触发了设置
+                    self.game_input.last_active_id = instance_id
+                    return SceneStatus.SETTINGS
         return SceneStatus.HOME
 
 
 class Settings(Scene):
-    def __init__(self, game_input: GameInput):
-        super().__init__(game_input)
+    def __init__(self, game_input: GameInput, surface: pygame.Surface):
+        super().__init__(game_input, surface)
         
         background = import_pic('assets/graphics/background/background_blurred.png')
         self.image = pygame.transform.scale(background, (SCREEN_WIDTH, SCREEN_HEIGHT))
         
-        self.panel_rect = pygame.Rect(SCREEN_WIDTH // 2 - 300, SCREEN_HEIGHT // 2 - 250, 600, 500)
+        self.panel_rect = pygame.Rect(SCREEN_WIDTH // 2 - 400, 80, 800, 560)
         self.panel_surf = pygame.Surface(self.panel_rect.size, pygame.SRCALPHA)
-        self.panel_surf.fill((0, 0, 0, 230))
+        self.panel_surf.fill((0, 0, 0, 240))
         
-        # 加载中文字体
-        self.font = pygame.font.Font(resource_path('assets/font/SimHei.ttf'), 36)
+        self.box_padding = 40 
+        self.content_box_rect = pygame.Rect(self.panel_rect.x + 40, self.panel_rect.y + 95, 720, 360)
+        
+        self.active_id = getattr(game_input, 'last_active_id', -1)
+        self.is_joystick = (self.active_id != -1)
+        
+        # 滚动相关
+        self.scroll_y = 0
+        self.target_scroll_y = 0
+        self.max_scroll_y = 0
+        
+        # 加载字体
+        path = resource_path('assets/font/SimHei.ttf')
+        self.font_tab = pygame.font.Font(path, 18) 
+        self.font_hint = pygame.font.Font(path, 18)
+        
+        # 标签定义
+        self.tabs = [
+            {'id': 'system', 'label': {'zh_CN': '系统设定', 'en_US': 'SYSTEM'}},
+            {'id': 'audio', 'label': {'zh_CN': '声音调节', 'en_US': 'AUDIO'}},
+            {'id': 'controls', 'label': {'zh_CN': '按键映射', 'en_US': 'CONTROLS'}},
+            {'id': 'advanced', 'label': {'zh_CN': '高级选项', 'en_US': 'ADVANCED'}}
+        ]
+        self.current_tab_index = 0
+        
+        # 始终聚焦在内容区
+        self.selection_index = 0 
         
         self.init_widgets()
-        self.selection_index = 0
-        self.widgets[0].selected = True
-        
-        # 增加输入冷却时间，防止一按跳好几个（从150ms调到250ms）
-        self.timer = Timer(250) 
-        self.dialogue = Dialogue(game_input)
+        self.timer = Timer(200) 
+        self.dialogue = Dialogue(game_input, self.screen)
 
     def init_widgets(self):
-        x, y = self.panel_rect.x + 50, self.panel_rect.y + 100
-        res_options = ['1280x720', '1920x1080', '800x600']
-        current_res = config.get('graphics', 'resolution')
-        res_index = res_options.index(current_res) if current_res in res_options else 0
+        self.tab_widgets = {tab['id']: [] for tab in self.tabs}
+        self.tab_selection_indices = {tab['id']: 0 for tab in self.tabs}
+        self.tab_content_heights = {tab['id']: 0 for tab in self.tabs}
         
-        self.widgets = [
-            Slider('主音量', (x, y), config.get('volume', 'master')),
-            Slider('音乐', (x, y + 45), config.get('volume', 'music')),
-            Slider('音效', (x, y + 90), config.get('volume', 'sfx')),
-            Toggle('全屏', (x, y + 135), config.get('graphics', 'fullscreen')),
-            Selector('分辨率', (x, y + 180), res_options, res_index),
-            KeyBinder('键盘攻击', (x, y + 225), config.get('controls', 'keyboard', 'attack')),
-            KeyBinder('手柄攻击', (x, y + 270), config.get('controls', 'joystick', 'attack'), is_joystick=True),
-            Button('恢复默认设置', (x, y + 330), (500, 45))
+        x_widget = self.content_box_rect.x + 60
+        y_start_base = self.content_box_rect.y + self.box_padding
+        
+        # --- 标签1：系统 ---
+        y = y_start_base
+        self.tab_widgets['system'].append(Selector({'zh_CN': '界面语言', 'en_US': 'LANGUAGE'}, (x_widget, y), ['简体中文', 'English'], 
+                                   0 if config.get('system', 'language') == 'zh_CN' else 1))
+        y += 60
+        self.tab_widgets['system'].append(Toggle({'zh_CN': '全屏显示', 'en_US': 'FULLSCREEN'}, (x_widget, y), config.get('graphics', 'fullscreen')))
+        y += 40
+        self.tab_content_heights['system'] = y - y_start_base
+
+        # --- 标签2：音频 ---
+        y = y_start_base
+        self.tab_widgets['audio'].extend([
+            Slider({'zh_CN': '主音量', 'en_US': 'MASTER'}, (x_widget, y), config.get('volume', 'master')),
+            Slider({'zh_CN': '背景音乐', 'en_US': 'MUSIC'}, (x_widget, y + 50), config.get('volume', 'music')),
+            Slider({'zh_CN': '游戏音效', 'en_US': 'SFX'}, (x_widget, y + 100), config.get('volume', 'sfx')),
+        ])
+        y += 140
+        self.tab_content_heights['audio'] = y - y_start_base
+        
+        # --- 标签3：按键 ---
+        y = y_start_base
+        device_key = 'joystick' if self.is_joystick else 'keyboard'
+        active_controller = self.game_input.controllers[self.active_id]['controller'] if self.is_joystick else None
+        actions = [
+            ({'zh_CN': '向上移动', 'en_US': 'MOVE UP'}, 'up'),
+            ({'zh_CN': '向下移动', 'en_US': 'MOVE DOWN'}, 'down'),
+            ({'zh_CN': '向左移动', 'en_US': 'MOVE LEFT'}, 'left'),
+            ({'zh_CN': '向右移动', 'en_US': 'MOVE RIGHT'}, 'right'),
+            ({'zh_CN': '跳跃', 'en_US': 'JUMP'}, 'jump'),
+            ({'zh_CN': '攻击', 'en_US': 'ATTACK'}, 'attack'),
+            ({'zh_CN': '技能1', 'en_US': 'SKILL 1'}, 'super move 1'),
+            ({'zh_CN': '技能2', 'en_US': 'SKILL 2'}, 'super move 2'),
+            ({'zh_CN': '终结技', 'en_US': 'FINISHER'}, 'finisher'),
+            ({'zh_CN': '确认', 'en_US': 'CONFIRM'}, 'confirm'),
+            ({'zh_CN': '取消', 'en_US': 'CANCEL'}, 'cancel'),
         ]
+        for label_dict, action_id in actions:
+            current_val = config.get('controls', device_key, action_id)
+            self.tab_widgets['controls'].append(KeyBinder(label_dict, (x_widget, y), current_val, action_id, 
+                                               is_joystick=self.is_joystick, controller=active_controller))
+            y += 50
+        self.tab_content_heights['controls'] = y - y_start_base
+            
+        # --- 标签4：高级 ---
+        y = y_start_base
+        self.tab_widgets['advanced'].extend([
+            Button({'zh_CN': '重置窗口大小', 'en_US': 'RESET WINDOW'}, (x_widget, y)),
+            Button({'zh_CN': '恢复默认设置', 'en_US': 'RESTORE ALL'}, (x_widget, y + 60))
+        ])
+        y += 105
+        self.tab_content_heights['advanced'] = y - y_start_base
+
+        self._refresh_selection()
+
+    def _refresh_selection(self):
+        active_tab_id = self.tabs[self.current_tab_index]['id']
+        for tab_id, widgets in self.tab_widgets.items():
+            for i, w in enumerate(widgets):
+                w.selected = (tab_id == active_tab_id and i == self.selection_index)
+
+    @property
+    def widgets(self):
+        return self.tab_widgets[self.tabs[self.current_tab_index]['id']]
 
     def run(self, dt) -> SceneStatus:
         if self.dialogue.showing:
-            if self.dialogue.run():
-                config.reset_to_defaults()
-                self.init_widgets() # 重新加载组件状态
+            res = self.dialogue.run()
+            if res:
+                current_widget = self.widgets[self.selection_index]
+                if current_widget.get_label().startswith(('恢复', 'RESTORE')):
+                    config.reset_to_defaults()
+                    self.init_widgets()
+                    self.game_input.refresh_all_maps()
+                elif current_widget.get_label().startswith(('重置', 'RESET')):
+                    pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
             return SceneStatus.SETTINGS
 
         self.screen.blit(self.image, (0, 0))
-        pygame.draw.rect(self.screen, 'orange', self.panel_rect.inflate(10, 10), 2)
+        
+        # 1. 绘制面板
+        pygame.draw.rect(self.screen, 'orange', self.panel_rect.inflate(6, 6), 1)
         self.screen.blit(self.panel_surf, self.panel_rect)
         
-        # 绘制标题
-        title = self.font.render('系统设置 SETTINGS', True, 'orange')
-        self.screen.blit(title, (self.panel_rect.x + 50, self.panel_rect.y + 30))
+        # 2. 标签栏 (圆角矩形)
+        lang = config.get('system', 'language')
+        tab_x = self.panel_rect.x + 50
+        tab_w = 170
+        tab_h = 35
+        for i, tab in enumerate(self.tabs):
+            tab_text = tab['label'].get(lang)
+            is_active = (i == self.current_tab_index)
+            rect = (tab_x, self.panel_rect.y + 40, tab_w, tab_h)
+            if is_active:
+                pygame.draw.rect(self.screen, 'orange', rect, border_radius=10)
+                text_color = (30, 30, 30)
+            else:
+                pygame.draw.rect(self.screen, (40, 40, 40), rect, border_radius=10)
+                pygame.draw.rect(self.screen, (80, 80, 80), rect, 1, border_radius=10)
+                text_color = (150, 150, 150)
+            txt_surf = self.font_tab.render(tab_text, True, text_color)
+            txt_rect = txt_surf.get_rect(center=(tab_x + tab_w // 2, self.panel_rect.y + 40 + tab_h // 2))
+            self.screen.blit(txt_surf, txt_rect)
+            tab_x += tab_w + 10
 
-        for widget in self.widgets:
-            widget.draw(self.screen)
+        # 3. 动态方框高度计算
+        active_tab_id = self.tabs[self.current_tab_index]['id']
+        active_widgets = self.tab_widgets[active_tab_id]
+        max_box_h = 360
+        total_needed_h = self.tab_content_heights[active_tab_id] + (self.box_padding * 2)
+        box_h = min(max_box_h, total_needed_h)
+        self.content_box_rect.h = box_h
+        pygame.draw.rect(self.screen, (100, 100, 100), self.content_box_rect, 1, border_radius=12)
+        
+        # 4. 滚动内容
+        self.scroll_y += (self.target_scroll_y - self.scroll_y) * 0.1
+        self.max_scroll_y = max(0, total_needed_h - box_h)
+        
+        old_clip = self.screen.get_clip()
+        clip_rect = self.content_box_rect.inflate(-20, -20)
+        self.screen.set_clip(clip_rect)
+        for widget in active_widgets:
+            widget.draw(self.screen, self.scroll_y)
+        self.screen.set_clip(old_clip)
+        
+        # 5. 绘制底部提示
+        if self.is_joystick:
+            active_controller = self.game_input.controllers[self.active_id]['controller']
+            l_text = "L1" if active_controller.type == 'ps' else "L" if active_controller.type == 'nintendo' else "LB"
+            r_text = "R1" if active_controller.type == 'ps' else "R" if active_controller.type == 'nintendo' else "RB"
+            confirm_text = active_controller.get_button_name(0) # 默认 A/Cross/B
+        else:
+            l_text, r_text = "Q", "E"
+            confirm_text = "ENTER"
+
+        if lang == 'zh_CN':
+            hint_text = f" {l_text} {r_text} : 切换标签    ↑ ↓ : 选择    {confirm_text} : 确定    ← → : 调节    ESC : 返回"
+        else:
+            hint_text = f" {l_text} {r_text} : Tabs    ↑ ↓ : Select    {confirm_text} : Confirm    ← → : Adjust    ESC : Back"
+        
+        hint_surf = self.font_hint.render(hint_text, True, (150, 150, 150))
+        self.screen.blit(hint_surf, (self.panel_rect.x + 50, self.panel_rect.bottom - 45))
 
         return self.handle_input()
 
     def handle_input(self):
-        # 使用第一个可用的控制器
-        ctrl = None
-        for dic in self.game_input.controllers.values():
-            ctrl = dic['controller']
-            break
-        
-        if not ctrl: return SceneStatus.SETTINGS
-
         self.timer.update()
-        
-        # 处理按键绑定等待 (键盘 + 手柄)
-        current_widget = self.widgets[self.selection_index]
-        if isinstance(current_widget, KeyBinder) and current_widget.waiting_for_input:
-            # 监听键盘
-            for event in pygame.event.get(pygame.KEYDOWN):
-                if not current_widget.is_joystick:
-                    key_name = pygame.key.name(event.key)
-                    current_widget.key = key_name
-                    current_widget.waiting_for_input = False
-                    config.set(key_name, 'controls', 'keyboard', 'attack')
-                    self.timer.activate()
-                return SceneStatus.SETTINGS
-            
-            # 监听手柄按钮
-            for event in pygame.event.get(pygame.JOYBUTTONDOWN):
-                if current_widget.is_joystick:
-                    btn_id = event.button
-                    current_widget.key = btn_id
-                    current_widget.waiting_for_input = False
-                    config.set(btn_id, 'controls', 'joystick', 'attack')
-                    self.timer.activate()
-                return SceneStatus.SETTINGS
-            
-            return SceneStatus.SETTINGS
-
         if self.timer.active: return SceneStatus.SETTINGS
 
-        # 上下选择
-        if ctrl.performed('up'):
-            current_widget.selected = False
-            self.selection_index = (self.selection_index - 1) % len(self.widgets)
-            self.widgets[self.selection_index].selected = True
-            self.timer.activate()
-        elif ctrl.performed('down'):
-            current_widget.selected = False
-            self.selection_index = (self.selection_index + 1) % len(self.widgets)
-            self.widgets[self.selection_index].selected = True
-            self.timer.activate()
+        for instance_id, device_info in self.game_input.controllers.items():
+            ctrl = device_info['controller']
+            
+            active_tab_id = self.tabs[self.current_tab_index]['id']
+            active_widgets = self.tab_widgets[active_tab_id]
+            current_widget = active_widgets[self.selection_index]
+            
+            # 按键绑定模式 (独占输入)
+            if isinstance(current_widget, KeyBinder) and current_widget.waiting_for_input:
+                if instance_id != self.active_id and self.active_id != -1:
+                    continue # 只有激活设备能改键
+                
+                device_key = 'joystick' if self.is_joystick else 'keyboard'
+                new_val = None
+                for event in pygame.event.get(pygame.KEYDOWN):
+                    new_val = pygame.key.name(event.key)
+                for event in pygame.event.get(pygame.JOYBUTTONDOWN):
+                    if event.instance_id == self.active_id:
+                        new_val = event.button
+                if new_val is not None:
+                    conflict_action = self._check_key_conflict(device_key, new_val, current_widget.action_id)
+                    if conflict_action:
+                        config.set(None, 'controls', device_key, conflict_action)
+                        config.set(new_val, 'controls', device_key, current_widget.action_id)
+                        self.init_widgets()
+                    else:
+                        current_widget.key = new_val
+                        config.set(new_val, 'controls', device_key, current_widget.action_id)
+                    
+                    self.game_input.refresh_all_maps()
+                    current_widget.waiting_for_input = False
+                    self.timer.activate()
+                return SceneStatus.SETTINGS
 
-        # 左右调节
-        if ctrl.performed('left') or ctrl.performed('right'):
-            direction = 'left' if ctrl.performed('left') else 'right'
-            if not isinstance(current_widget, Button):
-                val = current_widget.update_value(direction)
-                self._apply_setting(current_widget.label, val)
+            # --- 全局切页控制 ---
+            if ctrl.performed('tab_left') or ctrl.nav_performed('tab_left'):
+                self.current_tab_index = (self.current_tab_index - 1) % len(self.tabs)
+                self.target_scroll_y = 0
+                self.selection_index = 0
+                self._refresh_selection()
                 self.timer.activate()
+                return SceneStatus.SETTINGS
+            elif ctrl.performed('tab_right') or ctrl.nav_performed('tab_right'):
+                self.current_tab_index = (self.current_tab_index + 1) % len(self.tabs)
+                self.target_scroll_y = 0
+                self.selection_index = 0
+                self._refresh_selection()
+                self.timer.activate()
+                return SceneStatus.SETTINGS
 
-        # 确定与返回
-        if ctrl.performed('confirm'):
-            if isinstance(current_widget, Button):
-                self.dialogue.show('确定要恢复默认设置吗？')
+            # --- 上下选择内容 ---
+            if ctrl.nav_performed('up') and self.selection_index > 0:
+                self.selection_index -= 1
+                self._refresh_selection()
+                self._ensure_visible()
                 self.timer.activate()
-            elif hasattr(current_widget, 'waiting_for_input'):
-                current_widget.waiting_for_input = True
+                return SceneStatus.SETTINGS
+            elif ctrl.nav_performed('down') and self.selection_index < len(active_widgets) - 1:
+                self.selection_index += 1
+                self._refresh_selection()
+                self._ensure_visible()
                 self.timer.activate()
-            elif not isinstance(current_widget, Slider):
-                val = current_widget.update_value('right')
-                self._apply_setting(current_widget.label, val)
-                self.timer.activate()
-        
-        if ctrl.performed('cancel'):
-            config.save()
-            return SceneStatus.HOME
+                return SceneStatus.SETTINGS
+
+            # --- 左右调节数值 ---
+            perf_left = ctrl.nav_performed('left')
+            perf_right = ctrl.nav_performed('right')
+            if perf_left or perf_right:
+                direction = 'left' if perf_left else 'right'
+                if isinstance(current_widget, (Slider, Selector)):
+                    val = current_widget.update_value(direction)
+                    self._apply_setting(current_widget, val)
+                    self.timer.activate()
+                    return SceneStatus.SETTINGS
+
+            # --- 确认与返回 ---
+            if ctrl.performed('confirm'):
+                if isinstance(current_widget, Button):
+                    lang = config.get('system', 'language')
+                    msg = "确定要执行此操作吗？" if lang == 'zh_CN' else "Are you sure?"
+                    self.dialogue.show(msg)
+                    self.timer.activate()
+                elif isinstance(current_widget, KeyBinder):
+                    current_widget.waiting_for_input = True
+                    self.timer.activate()
+                elif isinstance(current_widget, Toggle):
+                    val = current_widget.update_value()
+                    self._apply_setting(current_widget, val)
+                    self.timer.activate()
+                return SceneStatus.SETTINGS
+            
+            if ctrl.performed('cancel'):
+                config.save()
+                self.game_input.refresh_all_maps()
+                return SceneStatus.HOME
 
         return SceneStatus.SETTINGS
 
-    def _apply_setting(self, label, value):
-        if label == '主音量': config.set(value, 'volume', 'master')
-        elif label == '音乐': config.set(value, 'volume', 'music')
-        elif label == '音效': config.set(value, 'volume', 'sfx')
-        elif label == '全屏': 
-            config.set(value, 'graphics', 'fullscreen')
-            # 使用 SCALED 配合 FULLSCREEN 是 Pygame 2 在 Mac 上的最佳实践
-            flags = pygame.SCALED
-            if value:
-                flags |= pygame.FULLSCREEN
+    def _check_key_conflict(self, device_key, new_key, current_action):
+        all_controls = config.get('controls', device_key)
+        for action, key in all_controls.items():
+            if action != current_action and str(key) == str(new_key):
+                return action
+        return None
+
+    def _ensure_visible(self):
+        active_widgets = self.tab_widgets[self.tabs[self.current_tab_index]['id']]
+        widget = active_widgets[self.selection_index]
+        view_top = self.content_box_rect.y + self.box_padding
+        view_bottom = self.content_box_rect.bottom - self.box_padding
+        rel_y = widget.pos[1] - self.scroll_y
+        if rel_y < view_top:
+            self.target_scroll_y = widget.pos[1] - view_top
+        elif rel_y + widget.size[1] > view_bottom:
+            self.target_scroll_y = widget.pos[1] + widget.size[1] - view_bottom
+        self.target_scroll_y = max(0, min(self.target_scroll_y, self.max_scroll_y))
+
+    def _apply_setting(self, widget, value):
+        label = widget.get_label()
+        # 语言切换 (检查中英文关键字以确保在任何语言下都能识别)
+        if '语言' in label or 'LANGUAGE' in label:
+            new_lang = 'en_US' if value == 'English' else 'zh_CN'
+            config.set(new_lang, 'system', 'language')
+        
+        # 音量调节
+        elif '音量' in label or 'VOLUME' in label:
+            if '主' in label or 'MASTER' in label: config.set(value, 'volume', 'master')
+            elif '音乐' in label or 'MUSIC' in label: config.set(value, 'volume', 'music')
+            elif '音效' in label or 'SFX' in label: config.set(value, 'volume', 'sfx')
             
-            # 重新设置模式
-            pygame.display.set_mode((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT), flags)
-            self.screen = pygame.display.get_surface()
-            self.screen.blit(self.image, (0, 0))
-            pygame.display.flip()
-        elif label == '分辨率':
-            config.set(value, 'graphics', 'resolution')
-            # 实现即时分辨率切换
-            try:
-                w, h = map(int, value.split('x'))
-                
-                # 更新全局变量
-                settings.SCREEN_WIDTH = w
-                settings.SCREEN_HEIGHT = h
-                
-                flags = pygame.SCALED
-                if config.get('graphics', 'fullscreen'):
-                    flags |= pygame.FULLSCREEN
-                
-                # 切换显示模式
-                pygame.display.set_mode((w, h), flags)
-                self.screen = pygame.display.get_surface()
-                
-                # 重新计算 UI 布局
-                self.panel_rect = pygame.Rect(w // 2 - 300, h // 2 - 250, 600, 500)
-                background = import_pic('assets/graphics/background/background_blurred.png')
-                self.image = pygame.transform.scale(background, (w, h))
-                
-                # 重新初始化组件以更新它们的位置坐标
-                self.init_widgets()
-                # 保持之前的选中索引
-                self.widgets[self.selection_index].selected = True
-                
-                # 强制刷新画面
-                self.screen.blit(self.image, (0, 0))
-                pygame.display.flip()
-                
-                logger.info(f"Resolution changed to {w}x{h}")
-            except Exception as e:
-                logger.error(f"Error changing resolution: {e}")
+        # 全屏切换
+        elif '全屏' in label or 'FULLSCREEN' in label: 
+            config.set(value, 'graphics', 'fullscreen')
+            pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN if value else 0) | pygame.RESIZABLE)
 
 
 class RolePicker(Scene):
-    def __init__(self, game_input: GameInput):
-        super().__init__(game_input)
+    def __init__(self, game_input: GameInput, surface: pygame.Surface):
+        super().__init__(game_input, surface)
         # 背景图
         background = import_pic('assets/graphics/background/background_blurred.png')
         self.image = pygame.transform.scale(background, (SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -281,10 +439,10 @@ class RolePicker(Scene):
         self.bar_rect = pygame.Rect(0, SCREEN_HEIGHT - 240, SCREEN_WIDTH, 180)
         self.bar = pygame.Surface(self.bar_rect.size, pygame.SRCALPHA)
         self.bar.fill((0, 0, 0, 214))  # 半透明
-        self.role_menu = RoleMenu(self.game_input)  # 可选角色
-        self.role_details = RoleDetailModule(self.game_input)  # 角色详情
+        self.role_menu = RoleMenu(self.game_input, self.screen)  # 可选角色
+        self.role_details = RoleDetailModule(self.game_input, self.screen)  # 角色详情
         self.image.blit(self.bar, self.bar_rect)
-        self.particles = Particles(0.05)
+        self.particles = Particles(0.05, self.screen)
         self.timer = Timer(100, lambda: setattr(self, 'start', True))
         self.start = False
 
@@ -297,10 +455,10 @@ class RolePicker(Scene):
             if device_info['player_index'] != 'p0':  # 已加入游戏
                 # 左右选择人物
                 if not timer.active and not device_info['confirmed']:  # 选定后不能移动
-                    if ctrl.performed('left'):
+                    if ctrl.nav_performed('left'):
                         device_info['player_name'] = self.role_menu.previous(current_player)
                         timer.activate()
-                    elif ctrl.performed('right'):
+                    elif ctrl.nav_performed('right'):
                         device_info['player_name'] = self.role_menu.next(current_player)
                         timer.activate()
 
@@ -344,11 +502,11 @@ class RolePicker(Scene):
 
 
 class RoleDetailModule:
-    def __init__(self, game_input: GameInput):
+    def __init__(self, game_input: GameInput, screen: pygame.Surface):
         self.group = pygame.sprite.Group()
         self.game_input = game_input
         self.place_holder = None
-        self.screen = pygame.display.get_surface()
+        self.screen = screen
         self.create_details()
 
     def create_details(self):
@@ -473,13 +631,13 @@ class RoleDetailItem(pygame.sprite.Sprite):
 
 
 class RoleMenu:
-    def __init__(self, game_input: GameInput):
+    def __init__(self, game_input: GameInput, surface: pygame.Surface):
         self.group = pygame.sprite.Group()
         self.game_input = game_input
         self.names: list[str] = [d for d in os.listdir(resource_path('assets/graphics/sprites')) if
                                  not d.startswith('.')]
         self.create_options()
-        self.screen = pygame.display.get_surface()
+        self.screen = surface
 
     def create_options(self) -> None:
         w = len(self.names) * 110

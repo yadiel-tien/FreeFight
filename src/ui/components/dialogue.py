@@ -1,19 +1,20 @@
 import pygame
 
-from core.support import resource_path
+from src.core.support import resource_path
 
 
 class Dialogue:
-    def __init__(self, game_input):
-        self.screen = pygame.display.get_surface()
+    def __init__(self, game_input, surface: pygame.Surface = None):
+        # 如果没有传入 surface，则尝试获取当前显示表面 (兼容旧代码或延迟设置)
+        self.screen = surface if surface else pygame.display.get_surface()
         self.game_input = game_input
         self.device_info = None
         # 背景
         self.image = pygame.Surface((450, 250), pygame.SRCALPHA)
         self.image.set_alpha(200)
-        # 居中
+        # 居中 (始终相对于 1280x720 的逻辑画布)
         self.border_rect = self.image.get_rect()
-        self.rect = self.image.get_rect(center=self.screen.get_rect().center)
+        self.rect = self.image.get_rect(center=(640, 360)) 
 
         self.text = ''
 
@@ -50,6 +51,9 @@ class Dialogue:
     # 返回True代表确认，False代表取消
     def run(self):
         if self.showing:
+            # 确保 screen 引用是最新的 (以防在初始化后才设置)
+            if not self.screen: self.screen = pygame.display.get_surface()
+            
             self.image.fill('black')
             self.draw_text()
             self.screen.blit(self.image, self.rect)

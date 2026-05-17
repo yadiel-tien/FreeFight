@@ -1,10 +1,10 @@
 import pygame
-from core.support import import_gifs_dict, import_pic
-from ui.ui import PlayerInfoCard
+from src.core.support import import_gifs_dict, import_pic
+from src.ui.ui import PlayerInfoCard
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, info, groups, dialogue):
+    def __init__(self, info, groups, dialogue, surface: pygame.Surface):
         super().__init__(groups)
         self.device_info = info
         self.dialogue = dialogue
@@ -13,7 +13,7 @@ class Player(pygame.sprite.Sprite):
         self.images = import_gifs_dict(f'assets/graphics/sprites/{info["player_name"]}')
         self.image_index = 0
         self.image = self.images['idle'][0]
-        self.display_surf = pygame.display.get_surface()
+        self.display_surf = surface
         player_index = int(info['player_index'][1:])
         self.pos = pygame.math.Vector2(300 * player_index, 700)
         self.rect = self.image.get_rect(midbottom=self.pos)
@@ -23,7 +23,7 @@ class Player(pygame.sprite.Sprite):
 
         # 临时血条展示
         avatar = import_pic(f'assets/graphics/sprites/{info["player_name"]}/avatar.png')
-        self.blood_ui = PlayerInfoCard(((player_index - 1) * 300 + 20, 20), avatar)
+        self.blood_ui = PlayerInfoCard(((player_index - 1) * 300 + 20, 20), avatar, self.display_surf)
 
         # 跳跃控制
         self.gravity = 800

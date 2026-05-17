@@ -1,5 +1,5 @@
 import pygame
-from core.support import import_gifs_dict
+from src.core.support import import_gifs_dict
 
 
 class DynamicBackGround(pygame.sprite.Sprite):

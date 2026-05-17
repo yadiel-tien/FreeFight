@@ -2,17 +2,17 @@ from random import randint, random
 
 import pygame
 
-from settings import SCREEN_WIDTH, SCREEN_HEIGHT
-from core.support import resource_path
+from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
+from src.core.support import resource_path
 
 
 class PlayerInfoCard:
-    def __init__(self, pos, image):
+    def __init__(self, pos, image, surface: pygame.Surface):
         self.pos = pos
         self.image = pygame.transform.scale(image, (50, 50))
         x, y = pos
         self.blood_rect = pygame.rect.Rect(x + 70, y + 10, 150, 20)
-        self.screen = pygame.display.get_surface()
+        self.screen = surface
 
     def display(self) -> None:
         self.screen.blit(self.image, self.pos)
@@ -68,9 +68,9 @@ class Particle(pygame.sprite.Sprite):
 
 
 class Particles:
-    def __init__(self, probability):
+    def __init__(self, probability, surface: pygame.Surface):
         self.group = pygame.sprite.Group()
-        self.screen = pygame.display.get_surface()
+        self.screen = surface
         self.probability = probability
 
     def update(self, dt):
