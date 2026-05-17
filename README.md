@@ -31,7 +31,7 @@ FreeFight is a 2D fighting game built with Python and the Pygame library. It fea
 #### Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/FreeFight.git
+   git clone https://github.com/yadiel-tien/FreeFight.git
    cd FreeFight
    ```
 2. Set up a virtual environment (recommended):
@@ -98,7 +98,7 @@ FreeFight 是一款使用 Python 和 Pygame 库开发的 2D 格斗游戏。它�
 #### 安装步骤
 1. 克隆仓库：
    ```bash
-   git clone https://github.com/yourusername/FreeFight.git
+   git clone https://github.com/yadiel-tien/FreeFight.git
    cd FreeFight
    ```
 2. 创建并激活虚拟环境（推荐）：

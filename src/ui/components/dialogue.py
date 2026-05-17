@@ -5,41 +5,71 @@ from src.core.support import resource_path
 
 class Dialogue:
     def __init__(self, game_input, surface: pygame.Surface = None):
-        # 如果没有传入 surface，则尝试获取当前显示表面 (兼容旧代码或延迟设置)
         self.screen = surface if surface else pygame.display.get_surface()
         self.game_input = game_input
         self.device_info = None
-        # 背景
-        self.image = pygame.Surface((450, 250), pygame.SRCALPHA)
-        self.image.set_alpha(200)
-        # 居中 (始终相对于 1280x720 的逻辑画布)
+        
+        # 弹窗本体表面
+        self.image = pygame.Surface((400, 180), pygame.SRCALPHA)
         self.border_rect = self.image.get_rect()
         self.rect = self.image.get_rect(center=(640, 360)) 
 
-        self.text = ''
+        # 静态模糊背景图
+        try:
+            bg_img = pygame.image.load(resource_path('assets/graphics/background/background_blurred.png'))
+            self.static_bg = pygame.transform.scale(bg_img, (1280, 720))
+            overlay = pygame.Surface((1280, 720))
+            overlay.fill((0, 0, 0))
+            overlay.set_alpha(100)
+            self.static_bg.blit(overlay, (0, 0))
+        except:
+            self.static_bg = pygame.Surface((1280, 720))
+            self.static_bg.fill((0, 0, 0))
+            self.static_bg.set_alpha(180)
 
-        # 显示开关
+        self.text = ''
         self.showing = False
 
     def draw_text(self):
+        from src.core.config import config
+        lang = config.get('system', 'language')
         path = resource_path('assets/font/SimHei.ttf')
-        font = pygame.font.Font(path, 30)
-        text_surf = font.render(self.text, False, 'white')
-        # 提示居中，y为50
-        text_rect = text_surf.get_rect(midtop=self.border_rect.midtop)
-        text_rect.y = 50
-        # 选项居中，y为50
-        options_surf = font.render('A 确认        B 取消', False, 'white')
-        options_rect = options_surf.get_rect(midtop=self.border_rect.midtop)
-        options_rect.y = 150
+        font_msg = pygame.font.Font(path, 24)
+        
+        # 绘制背景框和边框
+        pygame.draw.rect(self.image, (30, 30, 30), self.border_rect, border_radius=12)
+        pygame.draw.rect(self.image, 'orange', self.border_rect, 2, border_radius=12)
 
-        # 绘制文字
+        # 1. 绘制消息文本
+        text_surf = font_msg.render(self.text, True, 'white')
+        text_rect = text_surf.get_rect(midtop=self.border_rect.midtop)
+        text_rect.y = 45
         self.image.blit(text_surf, text_rect)
-        self.image.blit(options_surf, options_rect)
-        # 绘制圆圈
-        pos = options_rect.x + 7.5, options_rect.y + 15
-        pygame.draw.circle(self.image, 'green', pos, 20, 5)
-        pygame.draw.circle(self.image, 'red', (pos[0] + 209, pos[1]), 20, 5)
+
+        # 2. 获取提示内容 (UI 控制键是固定的，不再从 action_map 中获取)
+        if isinstance(self.device_info, dict):
+            ctrl = self.device_info['controller']
+            if hasattr(ctrl, 'get_button_name'): # 手柄
+                conf_hint = ctrl.get_button_name(0) # 硬编码 0 是确认 (A/X)
+                cancel_hint = ctrl.get_button_name(1) # 硬编码 1 是取消 (B/O)
+            else: # 键盘
+                conf_hint = "⏎"
+                cancel_hint = "ESC"
+        else:
+            conf_hint = self.game_input.get_confirm_hint(lang)
+            cancel_hint = self.game_input.get_menu_hint(lang)
+
+        conf_label = '确定' if lang == 'zh_CN' else 'CONFIRM'
+        cancel_label = '取消' if lang == 'zh_CN' else 'CANCEL'
+        
+        # 3. 使用统一的渲染引擎
+        from src.ui.text import Menu
+        hints_data = [(conf_hint, conf_label), (cancel_hint, cancel_label)]
+        tip_surf = Menu.get_tip_surf_multi(hints_data)
+        
+        # 居中放置在弹窗底部
+        tip_rect = tip_surf.get_rect(midbottom=(self.border_rect.centerx, self.border_rect.bottom - 35))
+        self.image.blit(tip_surf, tip_rect)
 
     def show(self, text, device_info=None):
         if not device_info:
@@ -48,27 +78,32 @@ class Dialogue:
         self.device_info = device_info
         self.showing = True
 
-    # 返回True代表确认，False代表取消
     def run(self):
         if self.showing:
-            # 确保 screen 引用是最新的 (以防在初始化后才设置)
-            if not self.screen: self.screen = pygame.display.get_surface()
+            # 1. 绘制背景
+            self.screen.blit(self.static_bg, (0, 0))
             
-            self.image.fill('black')
+            # 2. 绘制弹窗
+            self.image.fill((0, 0, 0, 0))
             self.draw_text()
             self.screen.blit(self.image, self.rect)
-            # 检查选择
+            
+            # 3. 检查输入选择
             if isinstance(self.device_info, list):
-                # 如果是列表，遍历检查是否有确认或取消的输入
-                return any(item for item in self.device_info if self.handle_input(item))
+                for item in self.device_info:
+                    res = self.handle_input(item)
+                    if res is not None: return res
             else:
                 return self.handle_input(self.device_info)
+        return None
 
     def handle_input(self, device_info):
         ctrl = device_info['controller']
-        if ctrl.performed('confirm'):
+        # 注意：UI 弹窗必须使用 ui_performed，因为这些按键已被硬编码
+        if ctrl.ui_performed('confirm'):
             self.showing = False
             return True
-        if ctrl.performed('cancel'):
+        if ctrl.ui_performed('cancel'):
             self.showing = False
-        return False
+            return False
+        return None

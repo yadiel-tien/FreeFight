@@ -5,34 +5,35 @@ from src.core.timer import Timer
 
 class Controller:
     def __init__(self):
-        self.actions = ['up', 'down', 'left', 'right', 'jump', 'attack', 'super move 1', 'super move 2', 'finisher',
-                        'confirm', 'cancel', 'menu', 'tab_left', 'tab_right']
+        # 可自定义的战斗动作
+        self.battle_actions = ['up', 'down', 'left', 'right', 'jump', 'attack', 'super move 1', 'super move 2', 'finisher']
+        # 固定的界面控制动作
+        self.ui_actions = ['up', 'down', 'left', 'right', 'tab_left', 'tab_right', 'confirm', 'cancel', 'menu']
+        
         self.last_released_key = ''
         self.last_released_time = 0
         self.running = False
-        self.execute: dict[str:bool] = {}
-        self.action_map: dict[str:int] = {}
-        self.key_released: dict[int:bool] = {}
-
-        for action in self.actions:
-            self.execute[action] = False
-        self.nav_execute: dict[str:bool] = {a: False for a in ['up', 'down', 'left', 'right']}
+        
+        self.execute: dict[str, bool] = {a: False for a in self.battle_actions}
+        self.ui_execute: dict[str, bool] = {a: False for a in self.ui_actions}
+        
+        self.action_map: dict[str, int] = {}
+        self.key_released: dict[int, bool] = {}
 
     def release_all(self) -> None:
         for key in self.action_map.values():
             self.key_released[key] = True
 
     def handle_keyup(self, event: pygame.event.Event, is_keyboard: bool) -> None:
-        current_time = pygame.time.get_ticks()  # 获取时间戳
+        current_time = pygame.time.get_ticks()
         event_type = pygame.KEYUP if is_keyboard else pygame.JOYBUTTONUP
         event_key = event.key if is_keyboard else event.button
         
-        # 除上下键外，其他按键变化就结束跑步
         if event_key not in [self.action_map.get('up'), self.action_map.get('down')]:
             self.running = False
 
-        # 记录释放按键、左右键更新时间
         if event and event.type == event_type:
+            # 1. 记录战斗映射按键的释放
             for action, key in self.action_map.items():
                 if event_key == key:
                     self.key_released[key] = True
@@ -40,9 +41,10 @@ class Controller:
                     if action in ['left', 'right']:
                         self.last_released_time = current_time
                     break
+            # 2. 记录所有物理按键的释放状态 (用于界面控制的 one-shot 逻辑)
+            self.key_released[event_key] = True
 
     def check_run_status(self) -> None:
-        # 满足跑步条件进入跑步状态,快速双击
         current_time = pygame.time.get_ticks()
         for action in ['left', 'right']:
             if (
@@ -51,14 +53,15 @@ class Controller:
                     and current_time - self.last_released_time < 150
             ):
                 self.running = True
-        if self.execute.get('left', False) and self.execute.get('right', False):  # 避免反向跑步
+        if self.execute.get('left', False) and self.execute.get('right', False):
             self.running = False
 
     def performed(self, action: str) -> bool:
-        if action in self.actions[4:]:
+        """战斗动作检测 (受配置影响)"""
+        if action in ['jump', 'attack', 'super move 1', 'super move 2', 'finisher']:
             key = self.action_map.get(action, pygame.K_UNKNOWN)
             if self.execute.get(action, False) and self.key_released.get(key, True):
-                self.key_released[key] = False  # 不允许连按
+                self.key_released[key] = False # 消耗该次按键
                 return True
         if action in ['up', 'down']:
             return self.execute.get(action, False)
@@ -68,8 +71,9 @@ class Controller:
             return self.execute.get(action[4:], False) and self.running
         return False
 
-    def nav_performed(self, direction: str) -> bool:
-        return self.nav_execute.get(direction, False)
+    def ui_performed(self, action: str) -> bool:
+        """界面动作检测 (硬编码，不受配置影响)"""
+        return False
 
     def refresh_map(self):
         pass
@@ -78,9 +82,6 @@ class Controller:
 class KeyBoard(Controller):
     def __init__(self):
         super().__init__()
-        from src.core.config import config
-        
-        # 定义内部映射名到 pygame 常量的映射
         self.name_to_key = {
             'a': pygame.K_a, 'b': pygame.K_b, 'c': pygame.K_c, 'd': pygame.K_d, 'e': pygame.K_e,
             'f': pygame.K_f, 'g': pygame.K_g, 'h': pygame.K_h, 'i': pygame.K_i, 'j': pygame.K_j,
@@ -101,183 +102,161 @@ class KeyBoard(Controller):
             'home': pygame.K_HOME, 'end': pygame.K_END, 'insert': pygame.K_INSERT, 'delete': pygame.K_DELETE,
             'up': pygame.K_UP, 'down': pygame.K_DOWN, 'left': pygame.K_LEFT, 'right': pygame.K_RIGHT
         }
-
         self.refresh_map()
 
     def refresh_map(self):
         from src.core.config import config
         saved_keys = config.get('controls', 'keyboard')
         self.action_map = {}
-        for action, key_name in saved_keys.items():
+        for action in self.battle_actions:
+            key_name = saved_keys.get(action)
             if key_name:
                 self.action_map[action] = self.name_to_key.get(key_name.lower(), pygame.K_UNKNOWN)
-            else:
-                self.action_map[action] = pygame.K_UNKNOWN
         self.release_all()
 
     def update(self, event: pygame.event.Event) -> None:
-        # 处理按键释放
         self.handle_keyup(event, is_keyboard=True)
-
-        # 更新按键按下状态
         keys = pygame.key.get_pressed()
+        
+        # 战斗动作状态
         for action, key in self.action_map.items():
-            self.execute[action] = keys[key]
+            self.execute[action] = keys[key] if key != pygame.K_UNKNOWN else False
 
-        # 固定菜单导航键：使用箭头键
-        self.nav_execute['up'] = keys[pygame.K_UP]
-        self.nav_execute['down'] = keys[pygame.K_DOWN]
-        self.nav_execute['left'] = keys[pygame.K_LEFT]
-        self.nav_execute['right'] = keys[pygame.K_RIGHT]
-        self.nav_execute['tab_left'] = keys[pygame.K_q]
-        self.nav_execute['tab_right'] = keys[pygame.K_e]
+        # UI 动作状态
+        self.ui_execute['up'] = keys[pygame.K_UP]
+        self.ui_execute['down'] = keys[pygame.K_DOWN]
+        self.ui_execute['left'] = keys[pygame.K_LEFT]
+        self.ui_execute['right'] = keys[pygame.K_RIGHT]
+        self.ui_execute['tab_left'] = keys[pygame.K_q]
+        self.ui_execute['tab_right'] = keys[pygame.K_e]
+        self.ui_execute['confirm'] = keys[pygame.K_RETURN]
+        self.ui_execute['cancel'] = keys[pygame.K_ESCAPE]
+        self.ui_execute['menu'] = keys[pygame.K_ESCAPE]
 
-        # 检查跑步状态
         self.check_run_status()
+
+    def ui_performed(self, action: str) -> bool:
+        one_shot_map = {
+            'tab_left': pygame.K_q, 'tab_right': pygame.K_e,
+            'confirm': pygame.K_RETURN, 'cancel': pygame.K_ESCAPE, 'menu': pygame.K_ESCAPE
+        }
+        key = one_shot_map.get(action)
+        if key and self.ui_execute.get(action, False) and self.key_released.get(key, True):
+            self.key_released[key] = False
+            return True
+        if action in ['up', 'down', 'left', 'right']:
+            return self.ui_execute.get(action, False)
+        return False
 
 
 class Joystick(Controller):
     def __init__(self, joystick: pygame.joystick.JoystickType):
         super().__init__()
-        from src.core.config import config
-        
-        self.key_map = {'A': 0, 'B': 1, 'X': 2, 'Y': 3, '-': 4, 'Home': 5, '+': 6, 'left stick down': 7,
-                        'right stick down': 8, 'left bumper': 9, 'right bumper': 10, 'cross up': 11,
-                        'cross down': 12, 'cross left': 13, 'cross right': 14, 'capture': 15,
-                        'left stick horizontal': 0, 'left stick vertical': 1, 'right stick horizontal': 2,
-                        'right stick vertical': 3, 'left trigger': 4, 'right trigger': 5}
-        
-        # 从配置中加载手柄映射
-        self.refresh_map()
-        
         self.joystick = joystick
         self.button_count = joystick.get_numbuttons()
         self.axis_count = joystick.get_numaxes()
         
         # 识别手柄类型
         self.name = joystick.get_name().lower()
-        if 'ps' in self.name or 'dualshock' in self.name or 'dualsense' in self.name or 'wireless controller' in self.name:
+        if any(kw in self.name for kw in ['ps', 'dualshock', 'dualsense', 'wireless controller']):
             self.type = 'ps'
-        elif 'nintendo' in self.name or 'switch' in self.name or 'joy-con' in self.name:
+        elif any(kw in self.name for kw in ['nintendo', 'switch', 'joy-con']):
             self.type = 'nintendo'
         else:
-            self.type = 'xbox' # 默认 Xbox 布局
+            self.type = 'xbox'
 
+        self.refresh_map()
         self.ls_left_released = True
         self.ls_right_released = True
-
         self.min_limit = 0.22
 
     def get_button_name(self, button_id: int) -> str:
         if button_id is None: return "---"
-        
-        # 基础映射 (针对大多数 PC 上的 Xbox 驱动)
         mapping = {
-            'xbox': {0: 'A', 1: 'B', 2: 'X', 3: 'Y', 4: 'LB', 5: 'RB', 6: 'Back', 7: 'Start', 8: 'LS', 9: 'RS', 10: 'Home'},
-            'ps': {0: 'X', 1: '○', 2: '□', 3: '△', 4: 'L1', 5: 'R1', 6: 'Share', 7: 'Options', 8: 'L3', 9: 'R3', 10: 'PS'},
-            'nintendo': {0: 'B', 1: 'A', 2: 'Y', 3: 'X', 4: 'L', 5: 'R', 6: '-', 7: '+', 8: 'LS', 9: 'RS', 10: 'Home'}
+            'xbox': {0: 'A', 1: 'B', 2: 'X', 3: 'Y', 4: 'LB', 5: 'RB', 6: 'Back', 7: 'Start', 8: 'LS', 9: 'LB', 10: 'RB', 11: 'Up', 12: 'Down', 13: 'Left', 14: 'Right'},
+            'ps': {0: 'X', 1: '○', 2: '□', 3: '△', 4: 'L1', 5: 'R1', 6: 'Share', 7: 'Options', 8: 'L3', 9: 'L1', 10: 'R1', 11: 'Up', 12: 'Down', 13: 'Left', 14: 'Right'},
+            'nintendo': {0: 'A', 1: 'B', 2: 'X', 3: 'Y', 4: 'L', 5: 'R', 6: '-', 7: '+', 8: 'LS', 9: 'L', 10: 'R', 11: 'Up', 12: 'Down', 13: 'Left', 14: 'Right'}
         }
-        
-        # 如果是标准的 L1/R1 (9/10)，在某些驱动下可能不同
-        # 这里的 9 和 10 是本项目硬编码的 tab_left 和 tab_right
-        if button_id == 9: return "L1" if self.type == 'ps' else "L" if self.type == 'nintendo' else "LB"
-        if button_id == 10: return "R1" if self.type == 'ps' else "R" if self.type == 'nintendo' else "RB"
-        
-        # 特殊处理菜单键 (通常是 7 或 6)
-        if button_id == 7: return "Options" if self.type == 'ps' else "+" if self.type == 'nintendo' else "≡"
-        if button_id == 6: return "Share" if self.type == 'ps' else "−" if self.type == 'nintendo' else "❐"
+        # 强制覆盖 ID 9/10 为肩键
+        if button_id == 9: return "L" if self.type == 'nintendo' else "L1" if self.type == 'ps' else "LB"
+        if button_id == 10: return "R" if self.type == 'nintendo' else "R1" if self.type == 'ps' else "RB"
         
         res = mapping.get(self.type, mapping['xbox']).get(button_id)
         return res if res else f"BTN {button_id}"
 
-
     def refresh_map(self):
         from src.core.config import config
-        self.action_map = config.get('controls', 'joystick')
+        saved_keys = config.get('controls', 'joystick')
+        self.action_map = {a: saved_keys.get(a) for a in self.battle_actions}
         self.release_all()
 
-    def handle_axis(self, event: pygame.event.Event) -> None:
-        # 记录摇杆左右动作和释放
-        if event.axis == self.key_map['left stick horizontal']:
-            current_time = pygame.time.get_ticks()
-
-            if -self.min_limit <= event.value <= self.min_limit:
-                if not self.ls_right_released:
-                    self.last_released_time = current_time
-                    self.last_released_key = 'right'
-                    self.running = False
-                elif not self.ls_left_released:
-                    self.last_released_time = current_time
-                    self.last_released_key = 'left'
-                    self.running = False
-
-                self.ls_right_released = True
-                self.ls_left_released = True
-            elif event.value < -self.min_limit:
-                self.ls_left_released = False
-                self.ls_right_released = True
-            else:
-                self.ls_left_released = True
-                self.ls_right_released = False
-
-    def pressed(self, button: str) -> bool:
-        button_id = self.action_map.get(button)
-        if button_id is None: return False
-        return self.joystick.get_button(button_id) if button_id < self.button_count else False
-
-    def axis_value(self, axis: str) -> float:
-        axis_id = self.key_map[axis]
-        return self.joystick.get_axis(axis_id) if axis_id < self.axis_count else 0
-
-    def stick_to(self, direction: str) -> bool:
-        horizontal = self.axis_value('left stick horizontal')
-        vertical = self.axis_value('left stick vertical')
-        if direction == 'left':
-            return horizontal < -self.min_limit
-        elif direction == 'right':
-            return horizontal > self.min_limit
-        elif direction == 'up':
-            return vertical < -self.min_limit
-        elif direction == 'down':
-            return vertical > self.min_limit
-        else:
-            return False
-
     def update(self, event: pygame.event.Event) -> None:
-        # 处理按键释放
         if event.type == pygame.JOYAXISMOTION:
-            self.handle_axis(event)
+            current_time = pygame.time.get_ticks()
+            if event.axis == 0: # Horizontal
+                if -self.min_limit <= event.value <= self.min_limit:
+                    if not self.ls_right_released: self.last_released_time, self.last_released_key, self.running = current_time, 'right', False
+                    elif not self.ls_left_released: self.last_released_time, self.last_released_key, self.running = current_time, 'left', False
+                    self.ls_right_released = self.ls_left_released = True
+                elif event.value < -self.min_limit: self.ls_left_released, self.ls_right_released = False, True
+                else: self.ls_left_released, self.ls_right_released = True, False
         else:
             self.handle_keyup(event, is_keyboard=False)
-            # 更新按键按下状态
-            for action in self.actions[4:]:
-                self.execute[action] = self.pressed(action)
 
-        # 上下左右,支持摇杆和十字键
-        for action in ['left', 'right', 'up', 'down']:
-            is_pressed = self.stick_to(action) or self.pressed(action)
-            self.execute[action] = is_pressed
-            # 菜单导航使用同样的逻辑，但是固定不受 action_map 影响
-            # 由于 Joystick 类中的 stick_to 本身就是基于物理轴的，
-            # 而 pressed(action) 是基于 action_map 的，
-            # 为了“固定”，我们需要直接访问十字键的物理按钮 ID
-            
-        # 固定菜单导航键：十字键 (11-14) 或 左摇杆
-        self.nav_execute['up'] = self.stick_to('up') or self.joystick.get_button(11)
-        self.nav_execute['down'] = self.stick_to('down') or self.joystick.get_button(12)
-        self.nav_execute['left'] = self.stick_to('left') or self.joystick.get_button(13)
-        self.nav_execute['right'] = self.stick_to('right') or self.joystick.get_button(14)
-        self.nav_execute['tab_left'] = self.joystick.get_button(9)
-        self.nav_execute['tab_right'] = self.joystick.get_button(10)
+        # 战斗动作状态 (配置映射)
+        h_axis = self.joystick.get_axis(0) if self.axis_count > 0 else 0
+        v_axis = self.joystick.get_axis(1) if self.axis_count > 1 else 0
+        self.execute['left'] = h_axis < -self.min_limit or (self.joystick.get_button(13) if self.button_count > 13 else False)
+        self.execute['right'] = h_axis > self.min_limit or (self.joystick.get_button(14) if self.button_count > 14 else False)
+        self.execute['up'] = v_axis < -self.min_limit or (self.joystick.get_button(11) if self.button_count > 11 else False)
+        self.execute['down'] = v_axis > self.min_limit or (self.joystick.get_button(12) if self.button_count > 12 else False)
+        
+        for action in ['jump', 'attack', 'super move 1', 'super move 2', 'finisher']:
+            btn_id = self.action_map.get(action)
+            self.execute[action] = self.joystick.get_button(btn_id) if btn_id is not None and btn_id < self.button_count else False
 
-        # 检查跑步状态
+        # UI 动作状态 (硬编码物理按键)
+        self.ui_execute['up'] = self.execute['up']
+        self.ui_execute['down'] = self.execute['down']
+        self.ui_execute['left'] = self.execute['left']
+        self.ui_execute['right'] = self.execute['right']
+        self.ui_execute['tab_left'] = self.joystick.get_button(9) if self.button_count > 9 else False
+        self.ui_execute['tab_right'] = self.joystick.get_button(10) if self.button_count > 10 else False
+        self.ui_execute['confirm'] = self.joystick.get_button(0) if self.button_count > 0 else False # A
+        self.ui_execute['cancel'] = self.joystick.get_button(1) if self.button_count > 1 else False  # B
+        self.ui_execute['menu'] = (self.joystick.get_button(7) if self.button_count > 7 else False) or \
+                                 (self.joystick.get_button(6) if self.button_count > 6 else False)
+
         self.check_run_status()
+
+    def ui_performed(self, action: str) -> bool:
+        # 定义 UI 动作对应的所有物理按钮 ID
+        ui_btn_map = {
+            'tab_left': [9], 'tab_right': [10],
+            'confirm': [0], 'cancel': [1],
+            'menu': [7, 6], # Start 或 Back
+            'up': [11], 'down': [12], 'left': [13], 'right': [14]
+        }
+        
+        btns = ui_btn_map.get(action, [])
+        if not btns: return False
+        
+        # 对于 one-shot 动作 (非方向键)
+        if action not in ['up', 'down', 'left', 'right']:
+            for b in btns:
+                if b < self.button_count and self.joystick.get_button(b) and self.key_released.get(b, True):
+                    self.key_released[b] = False
+                    return True
+            return False
+        else:
+            # 方向键直接返回执行状态
+            return self.ui_execute.get(action, False)
 
 
 class GameInput:
     def __init__(self):
         pygame.joystick.init()
-        self.controllers: dict[int:dict[str: any]] = {-1: {
+        self.controllers: dict[int, dict[str, any]] = {-1: {
             'player_index': 'p0',
             'player_name': 'unselected',
             'controller': KeyBoard(),
@@ -289,104 +268,61 @@ class GameInput:
         for device_info in self.controllers.values():
             device_info['controller'].refresh_map()
 
-    def update_timer(self) -> None:
-        for controller in self.controllers.values():
-            controller['timer'].update()
-
     def update(self, event) -> None:
         self.check_hot_plugging(event)
-        self.update_timer()
-        if hasattr(event, 'key'):  # 键盘事件更新
-            self.controllers[-1]['controller'].update(event)
-        if hasattr(event, 'instance_id') and event.instance_id in self.controllers:  # 手柄事件更新
+        for controller in self.controllers.values(): controller['timer'].update()
+        if hasattr(event, 'key'): self.controllers[-1]['controller'].update(event)
+        if hasattr(event, 'instance_id') and event.instance_id in self.controllers:
             self.controllers[event.instance_id]['controller'].update(event)
 
     def check_hot_plugging(self, event: pygame.event.Event) -> None:
-        # Handle hot plugging
         if event.type == pygame.JOYDEVICEADDED:
-            # event 有属性type，guid，device_index,同型号guid会重复
-            # device_index为设备索引，按插入顺序为0，1，2，3。。。
-            # instance_id为对象编号，每创建一个joystick就增加1，断掉再连也会增加1
             joystick = pygame.joystick.Joystick(event.device_index)
-            instance_id = joystick.get_instance_id()
-            # 新设备添加
-            self.controllers[instance_id] = {
-                'player_index': 'p0',
-                'player_name': 'unselected',
-                'confirmed': False,
-                'timer': Timer(200),
-                'controller': Joystick(joystick)
+            iid = joystick.get_instance_id()
+            self.controllers[iid] = {
+                'player_index': 'p0', 'player_name': 'unselected', 'confirmed': False,
+                'timer': Timer(200), 'controller': Joystick(joystick)
             }
-
         if event.type == pygame.JOYDEVICEREMOVED:
-            # event 有属性type、instance_id,此instance_id=创建时的joystick.get_instance_id()
-            del self.controllers[event.instance_id]
+            if event.instance_id in self.controllers: del self.controllers[event.instance_id]
 
-    def joined_count(self) -> int:
-        return sum(1 for dic in self.controllers.values() if dic['player_index'] != 'p0')
-
-    def joinable(self) -> None:
-        return self.joined_count() < 4
+    def joined_count(self) -> int: return sum(1 for dic in self.controllers.values() if dic['player_index'] != 'p0')
+    def joinable(self) -> bool: return self.joined_count() < 4
 
     def join(self, instance_id: int, name: str) -> None:
-        player_index = f'p{self.joined_count() + 1}'
-        self.controllers[instance_id]['player_index'] = player_index
+        self.controllers[instance_id]['player_index'] = f'p{self.joined_count() + 1}'
         self.controllers[instance_id]['player_name'] = name
 
     def leave(self, instance_id: int) -> None:
-        # 删除player_index,name
         deleting_index = self.controllers[instance_id]['player_index']
-
-        # 重置被删除玩家的索引和名称
-        self.controllers[instance_id]['player_index'] = 'p0'
-        self.controllers[instance_id]['player_name'] = 'unselected'
-
-        # 其他手柄位次前移
+        self.controllers[instance_id]['player_index'], self.controllers[instance_id]['player_name'] = 'p0', 'unselected'
         for dic in self.controllers.values():
             if dic['player_index'] > deleting_index:
-                current_index = int(dic['player_index'][1:])
-                dic['player_index'] = f'p{current_index - 1}'
+                dic['player_index'] = f'p{int(dic["player_index"][1:]) - 1}'
 
     def ready_to_start(self) -> bool:
-        count = 0  # 所有玩家都已准备好，且人数不少于2人
+        count = 0
         for dic in self.controllers.values():
             if dic['player_index'] != 'p0':
-                if dic['confirmed']:
-                    count += 1
-                else:
-                    return False
-
+                if dic['confirmed']: count += 1
+                else: return False
         return count > 0
 
-    def get_confirm_hint(self, lang='zh_CN') -> str:
-        return self._get_action_hint('confirm', lang)
+    def get_confirm_hint(self, lang='zh_CN') -> str: return self._get_action_hint('confirm')
+    def get_menu_hint(self, lang='zh_CN') -> str: return self._get_action_hint('cancel')
 
-    def get_menu_hint(self, lang='zh_CN') -> str:
-        return self._get_action_hint('cancel', lang) # 菜单/返回通常对应 cancel 或 menu 动作
-
-    def _get_action_hint(self, action_id, lang='zh_CN') -> str:
-        has_keyboard = -1 in self.controllers
-        joysticks = [d['controller'] for id, d in self.controllers.items() if id != -1]
-        
+    def _get_action_hint(self, ui_action) -> str:
         hints = []
-        if has_keyboard:
-            kb_key = self.controllers[-1]['controller'].action_map.get(action_id)
-            if kb_key == pygame.K_RETURN: hints.append("⏎")
-            elif kb_key == pygame.K_ESCAPE: hints.append("ESC")
-            elif kb_key: hints.append(pygame.key.name(kb_key).upper())
-        
+        if -1 in self.controllers:
+            mapping = {'confirm': '⏎', 'cancel': 'ESC'}
+            hints.append(mapping.get(ui_action, ui_action.upper()))
+        joysticks = [d['controller'] for id, d in self.controllers.items() if id != -1]
         if joysticks:
-            # 获取该动作在不同手柄上的按键名
-            btn_names = []
-            for j in joysticks:
-                btn_id = j.action_map.get(action_id)
-                btn_names.append(j.get_button_name(btn_id))
+            joy_map = {'confirm': 0, 'cancel': 1}
+            btn_names = [j.get_button_name(joy_map.get(ui_action)) for j in joysticks]
             hints.append("/".join(sorted(list(set(btn_names)))))
-        
         return " / ".join(hints)
 
     def reset(self) -> None:
         for ctrl in self.controllers.values():
-            ctrl['player_index'] = 'p0'
-            ctrl['player_name'] = 'unselected'
-            ctrl['confirmed'] = False
+            ctrl['player_index'], ctrl['player_name'], ctrl['confirmed'] = 'p0', 'unselected', False

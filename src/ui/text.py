@@ -55,7 +55,6 @@ class OptionText:
 
 class Menu:
     def __init__(self, label_list, game_input, pos, surface: pygame.Surface, size=50, center_at=None, show_back=True):
-        # label_list: list of label_dicts [{'zh_CN': '...', 'en_US': '...'}, ...]
         self.game_input = game_input
         x, y = pos
         self.options = []
@@ -95,97 +94,120 @@ class Menu:
         self.tip_pos = (self.center_at - self.tip.get_width() // 2, 620)
 
     @staticmethod
+    def draw_single_key(surface, x, y, key_text, font):
+        """绘制单个按键或图标 (微调比例以对齐文字)，返回宽度"""
+        color = (250, 250, 250)
+        cy = y + 10 # 逻辑中心 y
+        
+        # 1. 识别并绘制特殊符号 (缩小约 15-20%)
+        if key_text == "⏎":
+            pygame.draw.lines(surface, color, False, [(x+13, cy-5), (x+13, cy+3), (x+5, cy+3)], 2)
+            pygame.draw.lines(surface, color, False, [(x+8, cy), (x+4, cy+3), (x+8, cy+6)], 2)
+            return 18
+        elif key_text == "○":
+            pygame.draw.circle(surface, color, (x + 8, cy), 6, 2)
+            return 16
+        elif key_text == "□":
+            pygame.draw.rect(surface, color, (x + 2, cy - 6, 12, 12), 2)
+            return 16
+        elif key_text == "△":
+            pygame.draw.lines(surface, color, True, [(x + 8, cy - 7), (x + 1, cy + 5), (x + 15, cy + 5)], 2)
+            return 16
+        elif key_text == "≡":
+            for i in range(-4, 5, 4): pygame.draw.line(surface, color, (x+2, cy+i), (x+14, cy+i), 2)
+            return 16
+        elif key_text == "❐":
+            pygame.draw.rect(surface, color, (x+6, cy-5, 7, 7), 2)
+            pygame.draw.rect(surface, color, (x, cy-1, 7, 7), 2)
+            return 16
+        elif key_text == "−":
+            pygame.draw.line(surface, color, (x+3, cy), (x+13, cy), 2)
+            return 16
+        elif key_text == "↑ ↓":
+            pygame.draw.line(surface, color, (x+3, cy+6), (x+3, cy-6), 2)
+            pygame.draw.lines(surface, color, False, [(x, cy-3), (x+3, cy-6), (x+6, cy-3)], 2)
+            pygame.draw.line(surface, color, (x+13, cy-6), (x+13, cy+6), 2)
+            pygame.draw.lines(surface, color, False, [(x+10, cy+3), (x+13, cy+6), (x+16, cy+3)], 2)
+            return 20
+        elif key_text == "← →":
+            pygame.draw.line(surface, color, (x+12, cy-6), (x+2, cy-6), 2)
+            pygame.draw.lines(surface, color, False, [(x+5, cy-8), (x+2, cy-6), (x+5, cy-4)], 2)
+            pygame.draw.line(surface, color, (x+16, cy+6), (x+6, cy+6), 2)
+            pygame.draw.lines(surface, color, False, [(x+13, cy+4), (x+16, cy+6), (x+13, cy+8)], 2)
+            return 20
+        else:
+            # 普通文本
+            img = font.render(key_text, True, color)
+            surface.blit(img, (x, y + (20 - img.get_height()) // 2))
+            return img.get_width()
+
+    @staticmethod
     def get_tip_surf_multi(hints_data):
         # hints_data: [ (key_text, action_text), ... ]
         path = resource_path('assets/font/SimHei.ttf')
-        # 精致字体
+        # 调大动作文字，调小图标字体，使比例均衡
         font_key = pygame.font.Font(path, 14)
-        font_action = pygame.font.Font(path, 16)
+        font_action = pygame.font.Font(path, 18)
         font_key.set_bold(True)
         font_action.set_bold(True)
         
-        surfs = []
+        items = []
         total_w = 0
+        
+        symbols = ["⏎", "○", "□", "△", "≡", "❐", "−", "↑ ↓", "← →"]
+        
         for keys_text, action_text in hints_data:
-            # --- 渲染单个组合 (无边框极简风格) ---
-            has_return = "⏎" in keys_text
-            has_circle = "○" in keys_text
-            has_square = "□" in keys_text
-            has_triangle = "△" in keys_text
-            has_menu = "≡" in keys_text
-            has_view = "❐" in keys_text
-            has_minus = "−" in keys_text
-            has_v_arrows = "↑ ↓" in keys_text
-            has_h_arrows = "← →" in keys_text
+            # 1. 解析 keys_text (支持混合符号，如 "⏎ / A")
+            # 简单的分词逻辑：按空格分割，保留符号
+            tokens = []
+            temp = keys_text
+            while temp:
+                found = False
+                for sym in symbols:
+                    if temp.startswith(sym):
+                        tokens.append(sym)
+                        temp = temp[len(sym):].lstrip()
+                        found = True
+                        break
+                if not found:
+                    # 取下一个词
+                    space_idx = temp.find(" ")
+                    if space_idx == -1:
+                        tokens.append(temp)
+                        temp = ""
+                    else:
+                        tokens.append(temp[:space_idx])
+                        temp = temp[space_idx:].lstrip()
             
-            display_text = keys_text
-            for char in ["⏎", "○", "□", "△", "≡", "❐", "−", "↑", "↓", "←", "→"]:
-                display_text = display_text.replace(char, "  ")
+            # 2. 预渲染动作文本
+            action_img = font_action.render(action_text, True, (150, 150, 150))
             
-            # 分离颜色：按键高亮(250)，文字中灰(150)
-            icon_color = (250, 250, 250)
-            text_color = (150, 150, 150)
+            # 3. 计算该组合的总宽度并绘制
+            # 先创建一个足够宽的 temp 表面
+            temp_surf = pygame.Surface((500, 40), pygame.SRCALPHA)
+            curr_x = 0
+            for i, token in enumerate(tokens):
+                curr_x += Menu.draw_single_key(temp_surf, curr_x, 10, token, font_key)
+                if i < len(tokens) - 1: curr_x += 4 # 词间距
             
-            key_img = font_key.render(display_text, True, icon_color)
-            cap_width = key_img.get_width() + 6
-            action_img = font_action.render(action_text, True, text_color)
+            curr_x += 8 # 键与动作间距
+            temp_surf.blit(action_img, (curr_x, (40 - action_img.get_height()) // 2))
+            curr_x += action_img.get_width()
             
-            item_w = cap_width + 4 + action_img.get_width()
-            item_surf = pygame.Surface((item_w, 40), pygame.SRCALPHA)
+            # 裁剪并保存
+            final_item = pygame.Surface((curr_x, 40), pygame.SRCALPHA)
+            final_item.blit(temp_surf, (0, 0))
+            items.append(final_item)
+            total_w += curr_x + 25 # 组合间距
             
-            cx, cy = cap_width // 2, 20
-            if "/" in keys_text: cx = 8 
-            
-            # 绘制文字
-            item_surf.blit(key_img, (3, (40 - key_img.get_height()) // 2))
-            
-            # 手动绘制完整的、带柄的图标
-            color = icon_color
-            if has_return:
-                pygame.draw.lines(item_surf, color, False, [(cx+6, cy-6), (cx+6, cy+4), (cx-6, cy+4)], 2)
-                pygame.draw.lines(item_surf, color, False, [(cx-2, cy), (cx-7, cy+4), (cx-2, cy+8)], 2)
-            elif has_circle:
-                pygame.draw.circle(item_surf, color, (cx, cy), 7, 2)
-            elif has_square:
-                pygame.draw.rect(item_surf, color, (cx-7, cy-7, 14, 14), 2)
-            elif has_triangle:
-                pygame.draw.lines(item_surf, color, True, [(cx, cy-8), (cx-8, cy+6), (cx+8, cy+6)], 2)
-            elif has_menu:
-                for i in range(-5, 6, 5): 
-                    pygame.draw.line(item_surf, color, (cx-7, cy+i), (cx+7, cy+i), 2)
-            elif has_view:
-                pygame.draw.rect(item_surf, color, (cx-1, cy-6, 9, 9), 2)
-                pygame.draw.rect(item_surf, color, (cx-8, cy-1, 9, 9), 2)
-            elif has_minus:
-                pygame.draw.line(item_surf, color, (cx-6, cy), (cx+6, cy), 3)
-            elif has_v_arrows:
-                # 完整的上下箭头
-                x1, x2 = cx - 8, cx + 8
-                pygame.draw.line(item_surf, color, (x1, cy+7), (x1, cy-7), 2)
-                pygame.draw.lines(item_surf, color, False, [(x1-4, cy-3), (x1, cy-7), (x1+4, cy-3)], 2)
-                pygame.draw.line(item_surf, color, (x2, cy-7), (x2, cy+7), 2)
-                pygame.draw.lines(item_surf, color, False, [(x2-4, cy+3), (x2, cy+7), (x2+4, cy+3)], 2)
-            elif has_h_arrows:
-                # 完整的左右箭头
-                y1, y2 = cy - 7, cy + 7
-                lx_head, lx_tail = cx - 7, cx + 7
-                pygame.draw.line(item_surf, color, (lx_tail, y1), (lx_head, y1), 2)
-                pygame.draw.lines(item_surf, color, False, [(lx_head+3, y1-3), (lx_head, y1), (lx_head+3, y1+3)], 2)
-                rx_head, rx_tail = cx + 7, cx - 7
-                pygame.draw.line(item_surf, color, (rx_tail, y2), (rx_head, y2), 2)
-                pygame.draw.lines(item_surf, color, False, [(rx_head-3, y2-3), (rx_head, y2), (rx_head-3, y2+3)], 2)
-            
-            item_surf.blit(action_img, (cap_width + 2, (40 - action_img.get_height()) // 2))
-            
-            surfs.append(item_surf)
-            total_w += item_w + 10 
-            
-        total_w -= 10
+        if not items: return pygame.Surface((1, 1), pygame.SRCALPHA)
+        
+        total_w -= 25
         final_surf = pygame.Surface((total_w, 40), pygame.SRCALPHA)
         curr_x = 0
-        for s in surfs:
-            final_surf.blit(s, (curr_x, 0))
-            curr_x += s.get_width() + 10
+        for item in items:
+            final_surf.blit(item, (curr_x, 0))
+            curr_x += item.get_width() + 25
             
         return final_surf
 
@@ -204,12 +226,12 @@ class Menu:
         for instance_id, device_info in self.game_input.controllers.items():
             ctrl = device_info['controller']
             if not device_info['timer'].active:
-                if ctrl.nav_performed('up') and self.selected_index > 0:
+                if ctrl.ui_performed('up') and self.selected_index > 0:
                     self.selected_index -= 1
                     device_info['timer'].activate()
-                elif ctrl.nav_performed('down') and self.selected_index < len(self.options) - 1:
+                elif ctrl.ui_performed('down') and self.selected_index < len(self.options) - 1:
                     self.selected_index += 1
                     device_info['timer'].activate()
-                if ctrl.performed('confirm'):
+                if ctrl.ui_performed('confirm'):
                     return self.selected_index, instance_id
         return -1, None

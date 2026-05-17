@@ -143,14 +143,18 @@ class KeyBinder(UIWidget):
         if self.key is None:
             display_val = "---"
         elif self.is_joystick and self.controller:
+            # 优先使用手柄自定义名称
             display_val = self.controller.get_button_name(self.key)
         else:
-            if str(self.key).lower() in ['return', 'enter']:
+            key_str = str(self.key).lower()
+            if key_str in ['return', 'enter']:
                 display_val = "⏎"
+            elif key_str == 'escape':
+                display_val = "ESC"
+            elif key_str == 'space':
+                display_val = "SPC"
             else:
-                display_val = str(self.key).upper()
-            if self.is_joystick:
-                display_val = f"BTN {self.key}"
+                display_val = key_str.upper()
         
         # 如果正在发生冲突反馈
         if self.conflict_timer > 0:
@@ -161,12 +165,13 @@ class KeyBinder(UIWidget):
             if self.is_joystick and self.controller:
                 display_val = self.controller.get_button_name(self.temp_conflict_key)
             else:
-                if str(self.temp_conflict_key).lower() in ['return', 'enter']:
+                key_str = str(self.temp_conflict_key).lower()
+                if key_str in ['return', 'enter']:
                     display_val = "⏎"
+                elif key_str == 'escape':
+                    display_val = "ESC"
                 else:
-                    display_val = str(self.temp_conflict_key).upper()
-                if self.is_joystick:
-                    display_val = f"BTN {self.temp_conflict_key}"
+                    display_val = key_str.upper()
             
             self.conflict_timer -= 16 
         else:

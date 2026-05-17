@@ -145,5 +145,3 @@ class Player(pygame.sprite.Sprite):
             # 跳起水平速度增益
             self.direction.x *= 1.5
 
-        if ctrl.performed('menu'):
-            self.dialogue.show('确定要退出游戏吗？')

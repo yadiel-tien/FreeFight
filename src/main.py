@@ -27,17 +27,18 @@ class Game:
         self.current_scene = SceneStatus.UNDEFINED
         self.next_scene = SceneStatus.HOME
         self.scene = None
+        # 全局对话框 (仅用于点击窗口 X 按钮的强行退出)
         self.dialogue = Dialogue(self.game_input, self.display_surf)
 
     def run(self):
         while self.next_scene != SceneStatus.EXIT:
 
             dt = self.clock.tick(60) / 1000
+            
+            # 1. 场景切换逻辑
             if self.next_scene != self.current_scene:
-                # 销毁旧场景
                 if self.scene:
                     self.scene.de_init()
-                # 创建新场景，传入逻辑画布
                 if self.next_scene == SceneStatus.HOME:
                     self.scene = Home(self.game_input, self.display_surf)
                 elif self.next_scene == SceneStatus.CHOOSE_ROLE:
@@ -46,39 +47,39 @@ class Game:
                     self.scene = Level(self.game_input, self.display_surf)
                 elif self.next_scene == SceneStatus.SETTINGS:
                     self.scene = Settings(self.game_input, self.display_surf)
-
-                # 更新场景状态
                 self.current_scene = self.next_scene
 
-            # 1. 在逻辑画布上进行绘制
-            self.display_surf.fill('black')
-            if not self.dialogue.showing:
-                self.next_scene = self.scene.run(dt)
-            
-            # 处理对话框
-            if self.dialogue.run():
-                self.next_scene = SceneStatus.EXIT
+            # 2. 事件处理
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.dialogue.show('确定要退出吗？', self.game_input.controllers[-1])
+                self.game_input.update(event)
 
-            # 2. 将逻辑画布等比例缩放到实际窗口
+            # 3. 渲染流程：
+            self.display_surf.fill('black')
+            
+            scene_dialogue_showing = hasattr(self.scene, 'dialogue') and self.scene.dialogue.showing
+            is_paused = self.dialogue.showing or scene_dialogue_showing
+            
+            # 绘制场景层 (传入 dt=0 实现暂停效果)
+            # 场景内部自行处理其弹窗的渲染和逻辑返回
+            self.next_scene = self.scene.run(0 if is_paused else dt)
+            
+            # 4. 叠加全局弹窗图层 (最高优先级)
+            if self.dialogue.showing:
+                if self.dialogue.run():
+                    self.next_scene = SceneStatus.EXIT
+
+            # 5. 最终渲染到实际窗口
             window_w, window_h = self.window.get_size()
-            # 计算缩放比例，保持 16:9
             scale = min(window_w / SCREEN_WIDTH, window_h / SCREEN_HEIGHT)
             new_size = (int(SCREEN_WIDTH * scale), int(SCREEN_HEIGHT * scale))
-            
-            # 缩放逻辑画布
             scaled_surf = pygame.transform.smoothscale(self.display_surf, new_size)
             
-            # 居中绘制到窗口，多余部分自动留黑边
             self.window.fill('black')
             dest_rect = scaled_surf.get_rect(center=(window_w // 2, window_h // 2))
             self.window.blit(scaled_surf, dest_rect)
 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.dialogue.show('确定要退出吗？')
-                
-                self.game_input.update(event)
-            
             pygame.display.update()
 
 
