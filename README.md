@@ -66,8 +66,7 @@ python -m src.main
 - **Adding Characters:** Drop new graphics into `assets/graphics/sprites/<name>/` and update logic in `src/entities/player.py`.
 - **Custom Scenes:** Inherit from `Scene` in `src/scenes/scene.py` and register in `src/main.py`.
 
-### Tools
-- `tools/joystick_test.py`: Utility to test gamepad connections and mappings.
+
 
 ---
 
@@ -133,8 +132,7 @@ python -m src.main
 - **添加角色：** 将新的图形资源放入 `assets/graphics/sprites/<name>/` 并更新 `src/entities/player.py` 中的逻辑。
 - **自定义场景：** 继承 `src/scenes/scene.py` 中的 `Scene` 类并在 `src/main.py` 中注册。
 
-### 辅助工具
-- `tools/joystick_test.py`: 用于测试手柄连接和按键映射的实用程序。
+
 
 ---
 

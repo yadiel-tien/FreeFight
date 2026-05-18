@@ -94,18 +94,42 @@ class Player(pygame.sprite.Sprite):
         self.image = pygame.transform.flip(scaled, self.to_right, False)
 
     def get_hurtbox(self):
-        # 受击盒通常比图片小一点，位于中心
-        return self.rect.inflate(-40, -20)
+        # 更加精细的受击盒：根据图片实际缩放后的尺寸计算
+        # 宽度收缩更多（胸腹部受击），高度稍微降低（头部以下）
+        hurtbox = self.rect.copy()
+        hurtbox.width = int(self.rect.width * 0.4)
+        hurtbox.height = int(self.rect.height * 0.8)
+        hurtbox.center = self.rect.center
+        return hurtbox
 
     def get_hitbox(self):
         # 只有在攻击动作的活跃帧内才产生判定盒
         if self.status in self.attack_data:
             active_range = self.attack_data[self.status]['active']
             if active_range[0] <= self.image_index <= active_range[1]:
-                # 根据面向生成判定盒
-                offset = 60 if self.to_right else -60
-                hitbox = self.rect.copy().inflate(-60, -80)
-                hitbox.centerx += offset
+                # 判定盒尺寸优化：根据动作类型调整
+                # 默认判定盒稍微宽一点
+                hw = int(self.rect.width * 0.5)
+                hh = int(self.rect.height * 0.3)
+                
+                # 针对特定招式调整判定高度
+                y_offset = 0
+                if self.status == 'jump attack':
+                    y_offset = 20 # 踢腿偏下
+                elif self.status == 'head hit': # 某些特殊动作
+                    y_offset = -30
+
+                hitbox = pygame.Rect(0, 0, hw, hh)
+                
+                # 核心：根据面向（to_right）精准放置在拳头/脚部位置
+                if self.to_right:
+                    hitbox.midleft = self.rect.center
+                    hitbox.x += 10 # 稍微向外偏移
+                else:
+                    hitbox.midright = self.rect.center
+                    hitbox.x -= 10
+                
+                hitbox.y += y_offset
                 return hitbox
         return None
 
