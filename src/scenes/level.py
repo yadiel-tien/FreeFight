@@ -21,6 +21,9 @@ class Level(Scene):
         self.shake_timer = 0
         self.shake_intensity = 0
 
+        # 调试模式：显示判定框 (设置为 True 开启)
+        self.debug_mode = False 
+
         # 结算逻辑
         self.match_ended = False
         self.winner = None
@@ -155,6 +158,16 @@ class Level(Scene):
             player.update(0 if self.dialogue.showing else dt)
             offset_pos = player.rect.topleft - self.camera_offset
             self.screen.blit(player.image, offset_pos)
+
+            # 调试渲染：绘制判定框
+            if self.debug_mode:
+                # 绘制受击盒 (绿色)
+                hurtbox = player.get_hurtbox()
+                pygame.draw.rect(self.screen, (0, 255, 0), hurtbox.move(-self.camera_offset.x, -self.camera_offset.y), 2)
+                # 绘制攻击盒 (红色)
+                hitbox = player.get_hitbox()
+                if hitbox:
+                    pygame.draw.rect(self.screen, (255, 0, 0), hitbox.move(-self.camera_offset.x, -self.camera_offset.y), 2)
         
         # 第三层：特效
         for sprite in self.effect_sprites:

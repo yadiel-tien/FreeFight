@@ -66,7 +66,7 @@ python -m src.main
 - **Adding Characters:** Drop new graphics into `assets/graphics/sprites/<name>/` and update logic in `src/entities/player.py`.
 - **Custom Scenes:** Inherit from `Scene` in `src/scenes/scene.py` and register in `src/main.py`.
 
-
+~
 
 ---
 
