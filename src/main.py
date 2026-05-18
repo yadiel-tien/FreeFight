@@ -55,6 +55,9 @@ class Game:
                     # 点击窗口关闭按钮，默认由键盘设备处理
                     self.dialogue.show('确定要退出吗？', self.game_input.controllers[-1])
                 self.game_input.update(event)
+            
+            # 持续更新输入状态 (处理长按计时等)
+            self.game_input.update_timers(dt)
 
             # 3. 渲染流程：
             # A. 清空画布
