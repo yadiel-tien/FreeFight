@@ -264,6 +264,7 @@ class Joystick(Controller):
 class GameInput:
     def __init__(self):
         pygame.joystick.init()
+        self.frame_events = []
         self.controllers: dict[int, dict[str, any]] = {
             -1: {
                 'player_index': 'p0', 
@@ -274,11 +275,15 @@ class GameInput:
             }
         }
 
+    def clear_frame_events(self):
+        self.frame_events.clear()
+
     def refresh_all_maps(self):
         for device_info in self.controllers.values():
             device_info['controller'].refresh_map()
 
     def update(self, event) -> None:
+        self.frame_events.append(event)
         self.check_hot_plugging(event)
         if hasattr(event, 'key'):
             self.controllers[-1]['controller'].update(event)

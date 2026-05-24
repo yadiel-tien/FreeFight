@@ -163,9 +163,9 @@ class Settings(Scene):
         dev_key = 'joystick' if self.is_joystick else 'keyboard'
         ctrl = self.game_input.controllers[self.active_id]['controller'] if self.is_joystick else None
         actions = [
-            ({'zh_CN': '向上移动', 'en_US': 'MOVE UP'}, 'up'), ({'zh_CN': '向下移动', 'en_US': 'MOVE DOWN'}, 'down'),
+            ({'zh_CN': '向上/跳跃', 'en_US': 'UP / JUMP'}, 'up'), ({'zh_CN': '向下移动', 'en_US': 'MOVE DOWN'}, 'down'),
             ({'zh_CN': '向左移动', 'en_US': 'MOVE LEFT'}, 'left'), ({'zh_CN': '向右移动', 'en_US': 'MOVE RIGHT'}, 'right'),
-            ({'zh_CN': '跳跃', 'en_US': 'JUMP'}, 'jump'), ({'zh_CN': '攻击', 'en_US': 'ATTACK'}, 'attack'),
+            ({'zh_CN': '攻击', 'en_US': 'ATTACK'}, 'attack'),
             ({'zh_CN': '技能1', 'en_US': 'SKILL 1'}, 'super move 1'), ({'zh_CN': '技能2', 'en_US': 'SKILL 2'}, 'super move 2'),
             ({'zh_CN': '终结技', 'en_US': 'FINISHER'}, 'finisher'),
         ]
@@ -262,9 +262,12 @@ class Settings(Scene):
 
             if isinstance(cw, KeyBinder) and cw.waiting_for_input:
                 new_val = None
-                for event in pygame.event.get(pygame.KEYDOWN): new_val = pygame.key.name(event.key)
-                for event in pygame.event.get(pygame.JOYBUTTONDOWN):
-                    if event.instance_id == self.active_id: new_val = event.button
+                for event in self.game_input.frame_events:
+                    if event.type == pygame.KEYDOWN:
+                        new_val = pygame.key.name(event.key)
+                    elif event.type == pygame.JOYBUTTONDOWN:
+                        if event.instance_id == self.active_id:
+                            new_val = event.button
                 if new_val is not None:
                     cw.key, cw.waiting_for_input = new_val, False
                     config.set(new_val, 'controls', 'joystick' if self.is_joystick else 'keyboard', cw.action_id)

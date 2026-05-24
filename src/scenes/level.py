@@ -71,6 +71,13 @@ class Level(Scene):
         for attacker in players:
             hitbox = attacker.get_hitbox()
             if hitbox:
+                # 检查必杀技释放，生成高保真范围能量波特效
+                if attacker.status in ['super move 1', 'super move 2', 'super move 3', 'finisher'] and not attacker.special_wave_spawned:
+                    attacker.special_wave_spawned = True
+                    from src.ui.ui import ShockWave
+                    # 创建专属元素范围冲击波，大小与大招判定盒一致，展示伤害范围！
+                    ShockWave(hitbox, self.effect_sprites, attacker.device_info['player_name'], attacker.status)
+                    
                 for target in players:
                     if target != attacker and not target.is_hit and target.health > 0:
                         hurtbox = target.get_hurtbox()
@@ -376,6 +383,59 @@ class Level(Scene):
 
             offset_pos = player.rect.topleft - self.camera_offset
             self.screen.blit(player.image, offset_pos)
+            
+            # --- 前摇蓄力视觉效果：元素光环脉冲 (Startup Charging Aura) ---
+            if player.is_startup and player.startup_timer > 0:
+                import math
+                # 根据角色名称选定元素色系
+                name = player.device_info['player_name'].lower()
+                if name == 'bai':
+                    aura_color = (120, 200, 255)  # 冰蓝
+                elif name == 'dora':
+                    aura_color = (255, 100, 30)   # 炎橙
+                elif name == 'raymon':
+                    aura_color = (160, 60, 255)   # 雷紫
+                elif name == 'shuo':
+                    aura_color = (60, 255, 140)   # 风翠
+                else:
+                    aura_color = (255, 220, 60)   # 默认金
+                
+                # 脉冲光环呼吸闪烁 (越接近前摇结束越大越亮)
+                pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() / 60)
+                # 获取初始前摇总时间用于计算进度
+                move_data = player.attack_data.get(player.status, {})
+                total_startup = move_data.get('startup', 0.5)
+                progress = 1.0 - (player.startup_timer / max(0.01, total_startup))
+                
+                aura_radius = int(40 + 30 * progress + 10 * pulse)
+                aura_alpha = int(100 + 80 * progress)
+                
+                aura_surf = pygame.Surface((aura_radius * 2, aura_radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(aura_surf, (*aura_color, int(aura_alpha * 0.3)), 
+                                   (aura_radius, aura_radius), aura_radius)
+                pygame.draw.circle(aura_surf, (*aura_color, int(aura_alpha * 0.6)), 
+                                   (aura_radius, aura_radius), int(aura_radius * 0.6))
+                pygame.draw.circle(aura_surf, (255, 255, 255, int(aura_alpha * 0.4)), 
+                                   (aura_radius, aura_radius), int(aura_radius * 0.25))
+                
+                aura_pos = (player.rect.centerx - self.camera_offset.x - aura_radius,
+                            player.rect.centery - self.camera_offset.y - aura_radius)
+                self.screen.blit(aura_surf, aura_pos)
+            
+            # --- 收招僵直视觉效果：角色轮廓白色闪烁 (Recovery Lag Flash) ---
+            if player.recovery_timer > 0:
+                import math
+                flash_alpha = int(60 + 40 * math.sin(pygame.time.get_ticks() / 50))
+                # 复制角色图片，利用原始 alpha 通道作为蒙版
+                flash_surf = player.image.copy()
+                # 将所有可见像素的 RGB 变为白色 (保留原 alpha 通道)
+                flash_surf.fill((255, 255, 255), special_flags=pygame.BLEND_RGB_MAX)
+                # 降低整体透明度，实现半透闪烁
+                alpha_mask = pygame.Surface(flash_surf.get_size(), pygame.SRCALPHA)
+                alpha_mask.fill((255, 255, 255, max(0, flash_alpha)))
+                flash_surf.blit(alpha_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                flash_pos = player.rect.topleft - self.camera_offset
+                self.screen.blit(flash_surf, flash_pos)
 
             # 调试渲染：绘制判定框
             if self.debug_mode:
@@ -395,7 +455,7 @@ class Level(Scene):
         # 4. 最上层：UI (血条与连击数)
         from src.settings import SCREEN_WIDTH
         for player in players:
-            player.blood_ui.display(player.health, player.shadow_health, player.max_health)
+            player.blood_ui.display(player.health, player.shadow_health, player.max_health, player.energy)
             
             # 绘制连击次数 (Combo Counter Display)
             if player.combo_count > 1:

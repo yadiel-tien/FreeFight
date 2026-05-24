@@ -35,17 +35,24 @@ class Player(pygame.sprite.Sprite):
         self.invincible_timer = 0.0 # 无敌时间帧 (i-frames)
         self.knockback_velocity = pygame.math.Vector2(0, 0) # 物理滑动击退速度
         
-        # 招式数据 (伤害, 活跃帧范围, 击退)
+        # 招式数据 (伤害, 活跃帧范围, 击退, 前摇(秒), 僵直(秒), 能量消耗)
         self.attack_data = {
-            'attack': {'damage': 50, 'active': (2, 5), 'knockback': 10},
-            'combo': {'damage': 30, 'active': (1, 10), 'knockback': 5},
-            'dash attack': {'damage': 60, 'active': (2, 6), 'knockback': 20},
-            'jump attack': {'damage': 40, 'active': (1, 4), 'knockback': 15},
-            'super move 1': {'damage': 150, 'active': (5, 15), 'knockback': 40},
-            'super move 2': {'damage': 200, 'active': (10, 25), 'knockback': 50},
-            'super move 3': {'damage': 180, 'active': (5, 20), 'knockback': 45},
-            'finisher': {'damage': 300, 'active': (15, 40), 'knockback': 100},
+            'attack': {'damage': 50, 'active': (2, 5), 'knockback': 10, 'startup': 0, 'recovery': 0.08, 'cost': 0},
+            'combo': {'damage': 30, 'active': (1, 10), 'knockback': 5, 'startup': 0, 'recovery': 0.06, 'cost': 0},
+            'dash attack': {'damage': 60, 'active': (2, 6), 'knockback': 20, 'startup': 0, 'recovery': 0.12, 'cost': 0},
+            'jump attack': {'damage': 40, 'active': (1, 4), 'knockback': 15, 'startup': 0, 'recovery': 0, 'cost': 0},
+            'super move 1': {'damage': 150, 'active': (5, 15), 'knockback': 40, 'startup': 0.35, 'recovery': 0.45, 'cost': 30},
+            'super move 2': {'damage': 200, 'active': (10, 25), 'knockback': 50, 'startup': 0.50, 'recovery': 0.60, 'cost': 40},
+            'super move 3': {'damage': 180, 'active': (5, 20), 'knockback': 45, 'startup': 0.25, 'recovery': 0.35, 'cost': 30},
+            'finisher': {'damage': 300, 'active': (15, 40), 'knockback': 100, 'startup': 0.70, 'recovery': 0.80, 'cost': 100},
         }
+
+        # 必杀前摇与收招僵直状态变量
+        self.energy = 0.0 # 当前能量槽值 (0 到 100)
+        self.startup_timer = 0.0 # 当前前摇计时器
+        self.recovery_timer = 0.0 # 当前收招僵直计时器
+        self.is_startup = False # 是否处于必杀前摇状态
+        self.special_wave_spawned = False # 用于防止大招特效在一轮动画中重复产生
 
         # 临时血条展示 (使用 player_index p1/p2 以对称渲染)
         avatar = import_pic(f'assets/graphics/sprites/{info["player_name"]}/avatar.png')
@@ -56,6 +63,7 @@ class Player(pygame.sprite.Sprite):
         self.ground_y = 700
         self.jump_velocity = 0
         self.jump_strength = 500
+        self.air_inertia_x = 0.0
 
         # 移动锁控制 (冲刺攻击后需释放按键重新按下才能移动)
         self.movement_locked = False
@@ -73,8 +81,11 @@ class Player(pygame.sprite.Sprite):
     def update_image(self, dt):
         # frames是一个系列动画图片的列表
         frames = self.images[self.status]
-        # 增加动画播放速度
-        self.image_index += dt * 10
+        # 增加动画播放速度 (前摇蓄力期间动画以 1/3 速度慢放)
+        anim_speed = dt * 10
+        if self.is_startup:
+            anim_speed /= 3.0
+        self.image_index += anim_speed
         
         # 动画结束后动作
         if self.image_index >= len(frames):
@@ -90,7 +101,13 @@ class Player(pygame.sprite.Sprite):
                 if self.status in ['victory', 'show off']:
                     self.image_index = len(frames) - 1
                 else:
+                    # 动画正常结束，进入收招僵直 (Recovery Lag Phase)
+                    move_data = self.attack_data.get(self.status, {})
+                    rec_time = move_data.get('recovery', 0)
+                    if rec_time > 0:
+                        self.recovery_timer = rec_time
                     self.status = 'idle'
+                    self.special_wave_spawned = False
             
             # 受击动画结束判断
             if self.status in ['body hit', 'head hit'] and not self.is_hit:
@@ -137,6 +154,10 @@ class Player(pygame.sprite.Sprite):
         return hurtbox
 
     def get_hitbox(self):
+        # 前摇蓄力期间不产生任何判定框，此时大招没有任何伤害范围
+        if self.is_startup:
+            return None
+
         # 只有在攻击动作的活跃帧内才产生判定盒
         if self.status in self.attack_data and self.status in self.images:
             frames = self.images[self.status]
@@ -187,6 +208,13 @@ class Player(pygame.sprite.Sprite):
     def take_hit(self, damage, knockback, attacker):
         # 仅在非受击状态、没死、且无敌帧已结束时才接受受击
         if not self.is_hit and self.health > 0 and self.invincible_timer <= 0:
+            # --- 前摇打断与收招重置机制 (Startup Interrupt & Recovery Reset) ---
+            if self.is_startup:
+                self.is_startup = False
+                self.startup_timer = 0
+            self.recovery_timer = 0  # 受击时也重置收招僵直
+            self.special_wave_spawned = False
+            
             self.health -= max(0, damage)
             self.is_hit = True
             # 受击僵直时间根据伤害调整
@@ -243,6 +271,17 @@ class Player(pygame.sprite.Sprite):
 
     def update(self, dt):
         if dt > 0:
+            # 持续能量自然恢复 (+3/秒，最大值 100)
+            if self.health > 0:
+                self.energy = min(100.0, self.energy + dt * 3.0)
+
+            # --- 前摇蓄力时间递减 (Startup Lag Countdown) ---
+            if self.is_startup and self.startup_timer > 0:
+                self.startup_timer -= dt
+                if self.startup_timer <= 0:
+                    self.startup_timer = 0
+                    self.is_startup = False
+
             # 递减连击时间
             if self.combo_timer > 0:
                 self.combo_timer -= dt
@@ -292,8 +331,16 @@ class Player(pygame.sprite.Sprite):
                             self.invincible_timer = 0.40  # 起地起立给予 0.4 秒无敌帧，防起身死锁压制
                 self.mov(dt)  # 受击状态依然运行物理（受击退、重力下落）
             else:
-                self.handle_input()
-                self.mov(dt)
+                # --- 收招僵直处理 (Recovery Lag Phase) ---
+                if self.recovery_timer > 0:
+                    self.recovery_timer -= dt
+                    if self.recovery_timer <= 0:
+                        self.recovery_timer = 0
+                    # 收招僵直期间只运行物理，不接受任何输入
+                    self.mov(dt)
+                else:
+                    self.handle_input()
+                    self.mov(dt)
         self.update_image(dt)
 
     def mov(self, dt):
@@ -366,7 +413,8 @@ class Player(pygame.sprite.Sprite):
         # 切换状态
         if self.status == 'idle':
             if not self.movement_locked:
-                for key in ['left', 'right', 'up', 'down']:
+                # 仅左右键行走，上键被跳跃接管，下键不产生原地行走的歧义状态
+                for key in ['left', 'right']:
                     if ctrl.performed(key):
                         self.status = 'walk'
                 if ctrl.performed('run left') or ctrl.performed('run right'):
@@ -376,28 +424,74 @@ class Player(pygame.sprite.Sprite):
 
         # 在 idle, walk, run 下，且没有移动锁时允许触发大招、跳跃等
         if self.status in ['idle', 'walk', 'run'] and not self.movement_locked:
-            for key in ['super move 1', 'super move 2', 'finisher', 'jump']:
+            # --- 1. 上键跳跃 (用 just_pressed 做一次性触发，避免按住连跳) ---
+            if ctrl.actions['up'].just_pressed:
+                prev_status = self.status
+                self.status = 'jump'
+                self.image_index = 0
+                
+                self.ground_y = self.pos[1]
+                self.jump_velocity = -self.jump_strength
+                
+                # 记录起跳瞬间的横向惯性 (起步速度：跑动=1.5, 行走=1.0, 原地=0)
+                # 优先根据当前按下的方向键来判定跳跃方向与面向，防止由于瞬间按键顺序或输入延迟导致的错误判断
+                if ctrl.performed('right'):
+                    self.to_right = True
+                    if prev_status == 'run':
+                        self.air_inertia_x = 1.5
+                        self.jump_velocity *= 1.15
+                        self.movement_locked = True
+                    else:
+                        self.air_inertia_x = 1.0
+                elif ctrl.performed('left'):
+                    self.to_right = False
+                    if prev_status == 'run':
+                        self.air_inertia_x = -1.5
+                        self.jump_velocity *= 1.15
+                        self.movement_locked = True
+                    else:
+                        self.air_inertia_x = -1.0
+                else:
+                    # 如果没有按下任何水平方向键，则根据起跳前的状态和面向来决定横向惯性
+                    if prev_status == 'run':
+                        self.air_inertia_x = 1.5 if self.to_right else -1.5
+                        self.jump_velocity *= 1.15
+                        self.movement_locked = True
+                    elif prev_status == 'walk':
+                        self.air_inertia_x = 1.0 if self.to_right else -1.0
+                    else:
+                        self.air_inertia_x = 0.0
+
+            # --- 2. 触发必杀技与大招 (有能量限制、前摇与收招僵直) ---
+            for key in ['super move 1', 'super move 2', 'finisher']:
                 if ctrl.performed(key):
+                    # 能量限制验证 (Energy Limit Validation) - 从 attack_data 统一读取
+                    move_data = self.attack_data.get(key, {})
+                    cost = move_data.get('cost', 0)
+                    
+                    if self.energy < cost:
+                        continue # 能量不足，静默拦截！
+                        
+                    self.energy -= cost
+                    
                     # 记录之前的状态，用于判断起跳来源
                     prev_status = self.status
                     self.status = key
                     self.image_index = 0
                     
+                    # 前摇蓄力系统激活 (Startup Lag Activation)
+                    startup_time = move_data.get('startup', 0)
+                    if startup_time > 0:
+                        self.startup_timer = startup_time
+                        self.is_startup = True
+                    
                     # 瞬时面向修正 (仅针对大招与终结技)
-                    if key in ['super move 1', 'super move 2', 'finisher'] and opponent:
+                    if opponent:
                         self.to_right = (opponent.pos.x > self.pos.x)
                         
-                    # 如果是从奔跑中触发其他任何招式（跳跃、必杀技、终结技），全部施加移动锁（落后/收招后处于僵直）
+                    # 如果是从奔跑中出招，施加移动锁
                     if prev_status == 'run':
                         self.movement_locked = True
-                        
-                    if key == 'jump':  # 设置跳起初始状态
-                        self.ground_y = self.pos[1]
-                        self.jump_velocity = -self.jump_strength
-                        # 如果是从奔跑中跳起，触发“冲刺大跳”
-                        if prev_status == 'run':
-                            self.direction.x *= 1.5
-                            self.jump_velocity *= 1.15
 
             # 如果非奔跑状态，也允许触发普通 attack
             if self.status != 'run':
@@ -407,8 +501,8 @@ class Player(pygame.sprite.Sprite):
                     if opponent:
                         self.to_right = (opponent.pos.x > self.pos.x)
 
-        if self.status in ['walk', 'jump', 'jump attack']:
-            # 水平运动状态
+        if self.status == 'walk':
+            # 地面水平行走状态
             if ctrl.performed('left'):
                 self.direction.x = -1
                 self.to_right = False
@@ -417,6 +511,13 @@ class Player(pygame.sprite.Sprite):
                 self.to_right = True
             else:
                 self.direction.x = 0
+        elif self.status in ['jump', 'jump attack']:
+            # 空中状态：应用起跳惯性，可以通过按相反方向键减速（刹车），但不能加速或在空中转向
+            self.direction.x = self.air_inertia_x
+            if self.air_inertia_x > 0 and ctrl.performed('left'):
+                self.direction.x = self.air_inertia_x * 0.6  # 减速 40%
+            elif self.air_inertia_x < 0 and ctrl.performed('right'):
+                self.direction.x = self.air_inertia_x * 0.6  # 减速 40%
 
         # 纯 2D 横版格斗：Y 轴移动向量锁死为 0
         self.direction.y = 0
@@ -454,9 +555,19 @@ class Player(pygame.sprite.Sprite):
                     if opponent:
                         self.to_right = (opponent.pos.x > self.pos.x)
             elif ctrl.performed('super move 1'):
-                self.status = 'super move 3'
-                if opponent:
-                    self.to_right = (opponent.pos.x > self.pos.x)
+                # 空中大招能量验证 (Air Super Energy Validation)
+                air_cost = self.attack_data['super move 3'].get('cost', 30)
+                if self.energy >= air_cost:
+                    self.energy -= air_cost
+                    self.status = 'super move 3'
+                    self.image_index = 0
+                    # 空中大招也有前摇
+                    startup_time = self.attack_data['super move 3'].get('startup', 0)
+                    if startup_time > 0:
+                        self.startup_timer = startup_time
+                        self.is_startup = True
+                    if opponent:
+                        self.to_right = (opponent.pos.x > self.pos.x)
                 
         if self.status in ['jump', 'jump attack']:
             # 跳起水平速度增益 (从 1.5 提升至 2.2，让空中方向盘摇杆移动显著变快)

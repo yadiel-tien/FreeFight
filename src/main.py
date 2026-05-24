@@ -50,6 +50,7 @@ class Game:
                 self.current_scene = self.next_scene
 
             # 2. 事件处理
+            self.game_input.clear_frame_events()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     # 点击窗口关闭按钮，默认由键盘设备处理
