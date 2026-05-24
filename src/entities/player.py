@@ -184,7 +184,7 @@ class Player(pygame.sprite.Sprite):
                 return hitbox
         return None
 
-    def take_hit(self, damage, knockback, attacker_pos_x):
+    def take_hit(self, damage, knockback, attacker):
         # 仅在非受击状态、没死、且无敌帧已结束时才接受受击
         if not self.is_hit and self.health > 0 and self.invincible_timer <= 0:
             self.health -= max(0, damage)
@@ -213,10 +213,23 @@ class Player(pygame.sprite.Sprite):
             # 强制重置动画帧
             self.image_index = 0
             
-            # 计算击退方向
-            push_dir = 1 if self.pos.x > attacker_pos_x else -1
-            # 赋予物理滑动击退初速度，代替瞬间传送，使被攻击后的退行更加平滑
-            self.knockback_velocity.x = push_dir * (knockback * 40.0)
+            # --- 真实格斗受力物理系统：攻击方自我反震 (Attacker Recoil) 与 墙角反作用力 (Corner Pushback) ---
+            from src.settings import SCREEN_WIDTH
+            push_dir = 1 if self.pos.x > attacker.pos.x else -1
+            attacker_push_dir = -push_dir
+            
+            # 检测被攻击者是否已被逼入墙角 (舞台左限 -500 + 40, 右限 SCREEN_WIDTH + 500 - 40)
+            is_cornered_left = (self.pos.x <= -460 and push_dir == -1)
+            is_cornered_right = (self.pos.x >= SCREEN_WIDTH + 460 and push_dir == 1)
+            
+            if is_cornered_left or is_cornered_right:
+                # 墙角反震转移：被攻击者由于背后有坚硬墙壁无法后退，反作用力100%转移给攻击者！
+                self.knockback_velocity.x = 0
+                attacker.knockback_velocity.x = attacker_push_dir * (knockback * 75.0)
+            else:
+                # 正常力学分布：被攻击者承受100%击击退滑行，攻击者受到较小(25%)的反震力，防止近身压制粘人
+                self.knockback_velocity.x = push_dir * (knockback * 75.0)
+                attacker.knockback_velocity.x = attacker_push_dir * (knockback * 75.0 * 0.25)
 
     def resolve_player_collision(self, other):
         # 简单的圆形/距离碰撞，防止重叠
@@ -317,8 +330,8 @@ class Player(pygame.sprite.Sprite):
         # 计算位置 (包括普通行走/跑动速度和物理击退滑行速度)
         new_pos = self.pos + (self.direction * self.speed + self.knockback_velocity) * dt
         
-        # 击退滑动速度指数级衰减 (高强度地面摩擦力衰减)
-        self.knockback_velocity.x *= 0.85
+        # 击退滑动速度阻尼衰减 (基于 dt 的真实物理阻尼衰减，避免高帧率时衰减过快)
+        self.knockback_velocity.x -= self.knockback_velocity.x * 12.0 * dt
         if abs(self.knockback_velocity.x) < 5.0:
             self.knockback_velocity.x = 0
         

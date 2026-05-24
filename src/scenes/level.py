@@ -76,7 +76,7 @@ class Level(Scene):
                         hurtbox = target.get_hurtbox()
                         if hitbox.colliderect(hurtbox):
                             data = attacker.attack_data[attacker.status]
-                            target.take_hit(data['damage'], data['knockback'], attacker.pos.x)
+                            target.take_hit(data['damage'], data['knockback'], attacker)
                             
                             # 连击计数更新
                             attacker.combo_count += 1
@@ -174,8 +174,13 @@ class Level(Scene):
             
         right_center_x = card_x + 380 + (card_w - 380) // 2
         
-        # "VICTORY" 大标题 (金色金属质感 + 双层黑色下投影)
-        vic_text = "VICTORY"
+        # 胜利者代号 (P1 / P2)
+        p_prefix = ""
+        if self.winner:
+            p_prefix = "P1" if self.winner.device_info['player_index'] == 'p1' else "P2"
+            
+        # "P1/P2 VICTORY" 大标题 (金色金属质感 + 双层黑色下投影)
+        vic_text = f"{p_prefix} VICTORY" if self.winner else "DRAW"
         text_surf = font_large.render(vic_text, True, (255, 200, 40))
         shadow_surf = font_large.render(vic_text, True, (0, 0, 0))
         
@@ -270,10 +275,10 @@ class Level(Scene):
             confirm_btn_symbol = "⏎"
             
         if lang == 'en_US':
-            prefix_text = "PRESS "
+            prefix_text = f"[{p_prefix}] PRESS " if self.winner else "PRESS "
             suffix_text = " TO RETURN"
         else:
-            prefix_text = "按下 "
+            prefix_text = f"[{p_prefix}] 按下 " if self.winner else "按下 "
             suffix_text = " 返回主页"
             
         # 渲染文本段，计算整体尺寸以便在右半侧完美水平居中
