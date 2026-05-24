@@ -91,6 +91,8 @@ class Game:
             self.window.blit(scaled_surf, dest_rect)
 
             pygame.display.update()
+            
+            self.game_input.post_update()
 
 
 if __name__ == '__main__':

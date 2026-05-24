@@ -42,7 +42,7 @@ class Level(Scene):
             target_offset_x = avg_x - SCREEN_WIDTH / 2
             
             # 摄像机平滑追踪
-            self.camera_offset.x += (target_offset_x - self.camera_offset.x) * 0.1
+            self.camera_offset.x += (target_offset_x - self.camera_offset.x) * 0.2
             
             # 限制滚动范围
             max_scroll = 500 
@@ -156,6 +156,20 @@ class Level(Scene):
         players = sorted([s for s in self.display_sprites if isinstance(s, Player)], key=lambda p: p.rect.y)
         for player in players:
             player.update(0 if self.dialogue.showing else dt)
+            
+            # 限制玩家不能超出当前摄像机视野边界 (保证所有人物都在画面中)
+            if not self.dialogue.showing and not self.show_results:
+                from src.settings import SCREEN_WIDTH
+                margin = 60  # 加上半身宽度，保证整个身体在画面内
+                left_limit = self.camera_offset.x + margin
+                right_limit = self.camera_offset.x + SCREEN_WIDTH - margin
+                if player.pos.x < left_limit:
+                    player.pos.x = left_limit
+                    player.rect.midbottom = player.pos
+                elif player.pos.x > right_limit:
+                    player.pos.x = right_limit
+                    player.rect.midbottom = player.pos
+            
             offset_pos = player.rect.topleft - self.camera_offset
             self.screen.blit(player.image, offset_pos)
 

@@ -50,6 +50,9 @@ class Player(pygame.sprite.Sprite):
         self.jump_velocity = 0
         self.jump_strength = 500
 
+        # 移动锁控制 (冲刺攻击后需释放按键重新按下才能移动)
+        self.movement_locked = False
+
     def update_image(self, dt):
         # frames是一个系列动画图片的列表
         frames = self.images[self.status]
@@ -180,12 +183,14 @@ class Player(pygame.sprite.Sprite):
                 if self.status != 'knock down':
                     self.status = 'knock down'
                     self.image_index = 0
+                self.mov(dt)  # 死亡状态依然运行物理（落回地面）
             elif self.is_hit:
                 self.hit_timer -= dt
                 if self.hit_timer <= 0:
                     self.is_hit = False
-                    if self.status in ['body hit', 'head hit']:
+                    if self.status in ['body hit', 'head hit', 'knock down']:
                         self.status = 'idle'
+                self.mov(dt)  # 受击状态依然运行物理（受击退、重力下落）
             else:
                 self.handle_input()
                 self.mov(dt)
@@ -206,7 +211,7 @@ class Player(pygame.sprite.Sprite):
             self.direction.update(0, 0)
 
         # 计算跳起后垂直运动。落地后还原
-        if self.status in ['jump', 'jump attack', 'super move 3']:
+        if self.status in ['jump', 'jump attack', 'super move 3', 'knock down']:
             if self.pos[1] <= self.ground_y:
                 self.jump_velocity += self.gravity * dt
                 self.pos.y += self.jump_velocity * dt
@@ -225,35 +230,61 @@ class Player(pygame.sprite.Sprite):
         if -500 < new_pos.x < SCREEN_WIDTH + 500:
             self.pos.x = new_pos.x
         
-        # 垂直边界 (格斗游戏纵深限制)
-        if 650 < new_pos.y < 750:
-             # 如果不在跳跃中，允许Y轴移动（上下走位）
-             if self.status not in ['jump', 'jump attack', 'super move 3', 'knock down']:
-                self.pos.y = new_pos.y
-                self.ground_y = self.pos.y
+
 
         self.rect = self.image.get_rect(midbottom=self.pos)
-
     def handle_input(self):
         ctrl = self.device_info['controller']
+        
+        # 如果移动锁激活，且玩家已经松开了所有方向键，则解除锁定
+        if self.movement_locked:
+            if not (ctrl.performed('left') or ctrl.performed('right') or ctrl.performed('up') or ctrl.performed('down')):
+                self.movement_locked = False
+
+        # 连招链检测 (Attack -> Combo)
+        if self.status == 'attack':
+            if ctrl.performed('attack') and self.image_index >= 2.0:
+                if 'combo' in self.images:
+                    self.status = 'combo'
+                    self.image_index = 0
+
         # 切换状态
         if self.status == 'idle':
-            for key in ['left', 'right', 'up', 'down']:
-                if ctrl.performed(key):
-                    self.status = 'walk'
-            if ctrl.performed('run left') or ctrl.performed('run right'):
-                self.status = 'run'
+            if not self.movement_locked:
+                for key in ['left', 'right', 'up', 'down']:
+                    if ctrl.performed(key):
+                        self.status = 'walk'
+                if ctrl.performed('run left') or ctrl.performed('run right'):
+                    self.status = 'run'
         elif self.status != 'walk':
             ctrl.last_released_key = ''  # 避免在其他动画中提前触发跑步事件
 
-        if self.status in ['idle', 'walk']:
-            for key in ['super move 1', 'super move 2', 'finisher', 'jump', 'attack']:
+        # 在 idle, walk, run 下，且没有移动锁时允许触发大招、跳跃等
+        if self.status in ['idle', 'walk', 'run'] and not self.movement_locked:
+            for key in ['super move 1', 'super move 2', 'finisher', 'jump']:
                 if ctrl.performed(key):
+                    # 记录之前的状态，用于判断起跳来源
+                    prev_status = self.status
                     self.status = key
                     self.image_index = 0
+                    
+                    # 如果是从奔跑中触发其他任何招式（跳跃、必杀技、终结技），全部施加移动锁（落后/收招后处于僵直）
+                    if prev_status == 'run':
+                        self.movement_locked = True
+                        
                     if key == 'jump':  # 设置跳起初始状态
                         self.ground_y = self.pos[1]
                         self.jump_velocity = -self.jump_strength
+                        # 如果是从奔跑中跳起，触发“冲刺大跳”
+                        if prev_status == 'run':
+                            self.direction.x *= 1.5
+                            self.jump_velocity *= 1.15
+
+            # 如果非奔跑状态，也允许触发普通 attack
+            if self.status != 'run':
+                if ctrl.performed('attack'):
+                    self.status = 'attack'
+                    self.image_index = 0
 
         if self.status in ['walk', 'jump', 'jump attack']:
             # 水平运动状态
@@ -266,25 +297,28 @@ class Player(pygame.sprite.Sprite):
             else:
                 self.direction.x = 0
 
-        if self.status in ['walk', 'run', 'dash attack']:
-            # 垂直运动状态
-            if ctrl.performed('up'):
-                self.direction.y = -1
-            elif ctrl.performed('down'):
-                self.direction.y = 1
-            else:
-                self.direction.y = 0
+        # 纯 2D 横版格斗：Y 轴移动向量锁死为 0
+        self.direction.y = 0
 
         if self.status == 'run':
-            if ctrl.performed('run left'):
-                self.direction.x = -3
-            elif ctrl.performed('run right'):
-                self.direction.x = 3
-            elif ctrl.performed('attack'):
-                if 'dash attack' in self.images:  # 部分人物确动画
+            if ctrl.performed('attack'):
+                if 'dash attack' in self.images:  # 部分人物有此动画 (如 bai, raymon, shuo)
                     self.status = 'dash attack'
                     self.image_index = 0
+                    self.direction.x *= 2.0  # 冲刺攻击位移倍率 2.0
+                    self.movement_locked = True
+                else:
+                    # Dora 没有 dash attack, 回退到普通攻击但给予冲刺滑行
+                    self.status = 'attack'
+                    self.image_index = 0
                     self.direction.x *= 1.5
+                    self.movement_locked = True
+            elif ctrl.performed('run left'):
+                self.direction.x = -3
+                self.to_right = False
+            elif ctrl.performed('run right'):
+                self.direction.x = 3
+                self.to_right = True
             else:
                 self.direction.x = 0
 

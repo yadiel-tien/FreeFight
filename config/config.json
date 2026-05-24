@@ -19,7 +19,7 @@
             "up": "w",
             "down": "s",
             "attack": "j",
-            "jump": "k",
+            "jump": "space",
             "super move 1": "u",
             "super move 2": "i",
             "finisher": "t",
