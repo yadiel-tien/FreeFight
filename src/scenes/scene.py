@@ -376,14 +376,17 @@ class RoleDetailModule:
 
     def create_details(self):
         self.group.empty()
-        num = self.game_input.joined_count()
-        y, w, h = (40, 280, 420) if num <= 2 else (100, 200, 300)
-        gap = (SCREEN_WIDTH - w * (num + 1)) // (num + 2) if num < 4 else (SCREEN_WIDTH - w * 4) // 5
-        x = gap
-        for i in range(1, 5):
-            for dic in self.game_input.controllers.values():
-                if dic['player_index'] == f'p{i}': RoleDetailItem(dic, (x, y, w, h), self.group, self.game_input); x += gap + w; break
-        if num < 4: RoleDetailItem(None, (x, y, w, h), self.group, self.game_input)
+        w, h = 320, 420
+        y = 40
+        gap = (SCREEN_WIDTH - w * 2) // 3  # (1280 - 640) // 3 = 213
+        
+        # P1 Slot (Left Side)
+        p1_dic = next((dic for dic in self.game_input.controllers.values() if dic['player_index'] == 'p1'), None)
+        RoleDetailItem(p1_dic, (gap, y, w, h), self.group, self.game_input)
+        
+        # P2 Slot (Right Side)
+        p2_dic = next((dic for dic in self.game_input.controllers.values() if dic['player_index'] == 'p2'), None)
+        RoleDetailItem(p2_dic, (gap * 2 + w, y, w, h), self.group, self.game_input)
 
     def update(self, dt):
         self.group.update(dt); self.group.draw(self.screen)

@@ -14,19 +14,26 @@ class Player(pygame.sprite.Sprite):
         self.image_index = 0
         self.image = self.images['idle'][0]
         self.display_surf = surface
-        player_index = int(info['player_index'][1:])
-        self.pos = pygame.math.Vector2(300 * player_index, 700)
+        from src.settings import SCREEN_WIDTH
+        if info['player_index'] == 'p1':
+            self.pos = pygame.math.Vector2(280, 700)
+            self.to_right = True
+        else:
+            self.pos = pygame.math.Vector2(SCREEN_WIDTH - 280, 700)
+            self.to_right = False
+        
         self.rect = self.image.get_rect(midbottom=self.pos)
         self.speed = 150
         self.direction = pygame.math.Vector2()
-        self.to_right = True
 
-        # 战斗属性
+        # 战斗与物理属性
         self.max_health = 1000
         self.health = 1000
         self.is_hit = False
         self.hit_timer = 0
         self.hit_stop_timer = 0 # 击中冻结时间 (Hit Stop)
+        self.invincible_timer = 0.0 # 无敌时间帧 (i-frames)
+        self.knockback_velocity = pygame.math.Vector2(0, 0) # 物理滑动击退速度
         
         # 招式数据 (伤害, 活跃帧范围, 击退)
         self.attack_data = {
@@ -40,9 +47,9 @@ class Player(pygame.sprite.Sprite):
             'finisher': {'damage': 300, 'active': (15, 40), 'knockback': 100},
         }
 
-        # 临时血条展示
+        # 临时血条展示 (使用 player_index p1/p2 以对称渲染)
         avatar = import_pic(f'assets/graphics/sprites/{info["player_name"]}/avatar.png')
-        self.blood_ui = PlayerInfoCard(((player_index - 1) * 300 + 20, 20), avatar, self.display_surf)
+        self.blood_ui = PlayerInfoCard(info['player_index'], avatar, self.display_surf)
 
         # 跳跃控制
         self.gravity = 800
@@ -53,6 +60,16 @@ class Player(pygame.sprite.Sprite):
         # 移动锁控制 (冲刺攻击后需释放按键重新按下才能移动)
         self.movement_locked = False
 
+        # 连击计数
+        self.combo_count = 0
+        self.max_combo = 0
+        self.combo_timer = 0.0
+
+        # AAA级视觉表现属性
+        self.shadow_health = 1000.0
+        self.ghosts = []
+        self.ghost_timer = 0
+
     def update_image(self, dt):
         # frames是一个系列动画图片的列表
         frames = self.images[self.status]
@@ -62,8 +79,8 @@ class Player(pygame.sprite.Sprite):
         # 动画结束后动作
         if self.image_index >= len(frames):
             self.image_index = 0
-            # 维持最后一帧的状态：跳跃或被击倒
-            if self.status in ['jump', 'jump attack', 'knock down']:
+            # 维持最后一帧的状态：跳跃、被击倒、或受击硬直定格 (避免受击振动抖动循环)
+            if self.status in ['jump', 'jump attack', 'knock down', 'body hit', 'head hit']:
                 self.image_index = len(frames) - 1
             
             # 自动回到 idle 的动画
@@ -92,9 +109,23 @@ class Player(pygame.sprite.Sprite):
             white_mask = scaled.copy()
             white_mask.fill((255, 255, 255, 0), special_flags=pygame.BLEND_RGBA_MAX)
             scaled = white_mask
+            
+        # 无敌帧透明度闪烁效果 (Arcade Blinking I-Frames)
+        if self.invincible_timer > 0 and (pygame.time.get_ticks() // 80) % 2 == 0:
+            scaled.set_alpha(120)
 
         # 左右转向
         self.image = pygame.transform.flip(scaled, self.to_right, False)
+
+        # 在高速/大招动作下周期性产生分身残影 (Ghost Trails Generation)
+        if self.status in ['run', 'dash attack', 'super move 1', 'super move 2', 'super move 3', 'finisher']:
+            self.ghost_timer += 1
+            if self.ghost_timer % 3 == 0:
+                self.ghosts.append({
+                    'image': self.image.copy(),
+                    'pos': self.rect.topleft,
+                    'alpha': 160.0
+                })
 
     def get_hurtbox(self):
         # 更加精细的受击盒：根据图片实际缩放后的尺寸计算
@@ -107,13 +138,30 @@ class Player(pygame.sprite.Sprite):
 
     def get_hitbox(self):
         # 只有在攻击动作的活跃帧内才产生判定盒
-        if self.status in self.attack_data:
-            active_range = self.attack_data[self.status]['active']
-            if active_range[0] <= self.image_index <= active_range[1]:
+        if self.status in self.attack_data and self.status in self.images:
+            frames = self.images[self.status]
+            total_frames = len(frames)
+            
+            # 动态计算活跃帧区间，防止 GIF 帧数极少导致硬编码活跃帧失效
+            if self.status in ['attack', 'combo', 'dash attack', 'jump attack']:
+                # 轻攻击/普通/跑攻/跳攻：第 1 帧到最后一帧 (留 1 帧前摇，如果是单帧则直接第 0 帧)
+                start_frame = max(0, min(1, total_frames - 1))
+                end_frame = max(0, total_frames - 1)
+            else:
+                # 重攻击/必杀技/终结技：前摇 30% 到 90%
+                start_frame = int(total_frames * 0.3)
+                end_frame = max(start_frame, int(total_frames * 0.9))
+            
+            if start_frame <= self.image_index <= end_frame:
                 # 判定盒尺寸优化：根据动作类型调整
-                # 默认判定盒稍微宽一点
-                hw = int(self.rect.width * 0.5)
-                hh = int(self.rect.height * 0.3)
+                if self.status in ['super move 1', 'super move 2', 'super move 3', 'finisher']:
+                    # 重攻击/必杀技拥有大范围霸道的判定盒 (70% 宽度，40% 高度)
+                    hw = int(self.rect.width * 0.7)
+                    hh = int(self.rect.height * 0.4)
+                else:
+                    # 普通攻击/轻攻击判定盒 (25% 宽度，20% 高度)，必须贴近碰到人才有判定
+                    hw = int(self.rect.width * 0.25)
+                    hh = int(self.rect.height * 0.2)
                 
                 # 针对特定招式调整判定高度
                 y_offset = 0
@@ -137,29 +185,38 @@ class Player(pygame.sprite.Sprite):
         return None
 
     def take_hit(self, damage, knockback, attacker_pos_x):
-        if not self.is_hit and self.health > 0:
+        # 仅在非受击状态、没死、且无敌帧已结束时才接受受击
+        if not self.is_hit and self.health > 0 and self.invincible_timer <= 0:
             self.health -= max(0, damage)
             self.is_hit = True
             # 受击僵直时间根据伤害调整
             self.hit_timer = 0.4 + (damage / 500) 
-            # 顿帧 (Hit Stop): 增加受击瞬间的阻滞感
-            self.hit_stop_timer = 0.12 # 120ms 的顿帧
             
-            # 确定受击动画
-            if self.pos.y < self.ground_y: # 在空中受击
-                self.status = 'knock down'
-            elif self.health <= 0:
-                self.status = 'knock down'
+            # 动态顿帧 (Hit Stop): 根据伤害等级动态调整阻滞感，强化打击重量感
+            if damage < 60:
+                self.hit_stop_timer = 0.08
+            elif damage < 100:
+                self.hit_stop_timer = 0.12
+            elif damage < 250:
+                self.hit_stop_timer = 0.18
             else:
-                self.status = 'body hit' if damage < 100 else 'head hit'
+                self.hit_stop_timer = 0.25
+            
+            # 确定受击与击飞状态：空中受击、重击 (>=100)、或死亡时触发击飞 knockdown
+            if self.pos.y < self.ground_y or damage >= 100 or self.health <= 0:
+                self.status = 'knock down'
+                # 赋予物理抛物线击飞初速度，支持空中追击连招
+                self.jump_velocity = -120 - knockback * 1.5
+            else:
+                self.status = 'body hit'
             
             # 强制重置动画帧
             self.image_index = 0
             
             # 计算击退方向
             push_dir = 1 if self.pos.x > attacker_pos_x else -1
-            # 击退距离限制，防止出界
-            self.pos.x += push_dir * knockback
+            # 赋予物理滑动击退初速度，代替瞬间传送，使被攻击后的退行更加平滑
+            self.knockback_velocity.x = push_dir * (knockback * 40.0)
 
     def resolve_player_collision(self, other):
         # 简单的圆形/距离碰撞，防止重叠
@@ -173,6 +230,30 @@ class Player(pygame.sprite.Sprite):
 
     def update(self, dt):
         if dt > 0:
+            # 递减连击时间
+            if self.combo_timer > 0:
+                self.combo_timer -= dt
+                if self.combo_timer <= 0:
+                    self.combo_count = 0
+
+            # 递减残影透明度并清理过期残影 (Ghost Trails decay)
+            for ghost in self.ghosts:
+                ghost['alpha'] -= dt * 450.0
+            self.ghosts = [g for g in self.ghosts if g['alpha'] > 0]
+
+            # 缓动红色血量阴影槽 (Smooth Damage Shadow Bar decay)
+            if self.shadow_health > self.health:
+                self.shadow_health -= (self.shadow_health - self.health) * 0.08
+                if self.shadow_health - self.health < 1.0:
+                    self.shadow_health = self.health
+            elif self.shadow_health < self.health:
+                # 治疗或血量重置时瞬间同步，防止阴影槽反常滞后
+                self.shadow_health = self.health
+
+            # 递减无敌时间帧
+            if self.invincible_timer > 0:
+                self.invincible_timer -= dt
+
             # 顿帧处理：如果处于顿帧中，跳过逻辑更新，保持当前姿势
             if self.hit_stop_timer > 0:
                 self.hit_stop_timer -= dt
@@ -188,41 +269,58 @@ class Player(pygame.sprite.Sprite):
                 self.hit_timer -= dt
                 if self.hit_timer <= 0:
                     self.is_hit = False
-                    if self.status in ['body hit', 'head hit', 'knock down']:
+                    if self.status in ['body hit', 'head hit']:
                         self.status = 'idle'
+                        self.invincible_timer = 0.20  # 普攻受击硬直结束后给予 0.2 秒无敌帧，以防多段死锁
+                    elif self.status == 'knock down':
+                        # 如果在地面上，直接起立；如果还在空中，保持倒地姿态继续下落，等落地再起立
+                        if self.pos.y >= self.ground_y:
+                            self.status = 'idle'
+                            self.invincible_timer = 0.40  # 起地起立给予 0.4 秒无敌帧，防起身死锁压制
                 self.mov(dt)  # 受击状态依然运行物理（受击退、重力下落）
             else:
                 self.handle_input()
                 self.mov(dt)
         self.update_image(dt)
-        # self.blood_ui.display 已移至 Level.run 统一最上层渲染
 
     def mov(self, dt):
         if self.direction.magnitude() == 0 and self.status in ['walk', 'run']:
             self.status = 'idle'
         
-        # 死亡状态不能移动
+        # 死亡状态不能进行水平控制移动，但继续向下运行物理重力与滑动击退
         if self.status == 'knock down' and self.health <= 0:
             self.direction.update(0, 0)
-            return
 
-        # 不能移动的动画
-        if self.status in ['idle', 'super move 1', 'super move 2', 'super move 3', 'finisher', 'attack', 'body hit', 'head hit', 'knock down']:
+        # 不能移动的动画 (包含胜利和炫耀展示，防止出招/胜利后平移飘走，新增 combo 以免横向滑行)
+        if self.status in ['idle', 'super move 1', 'super move 2', 'super move 3', 'finisher', 'attack', 'combo', 'body hit', 'head hit', 'knock down', 'victory', 'show off']:
             self.direction.update(0, 0)
 
         # 计算跳起后垂直运动。落地后还原
-        if self.status in ['jump', 'jump attack', 'super move 3', 'knock down']:
-            if self.pos[1] <= self.ground_y:
+        is_airborne = self.pos.y < self.ground_y
+        if is_airborne or self.status in ['jump', 'jump attack', 'super move 3', 'knock down']:
+            if self.pos.y < self.ground_y or self.jump_velocity < 0:
                 self.jump_velocity += self.gravity * dt
                 self.pos.y += self.jump_velocity * dt
             else:
                 self.pos.y = self.ground_y
                 self.jump_velocity = 0
-                if self.status != 'knock down': # 击倒动画特殊处理
+                
+                # 落地状态判定
+                if self.status == 'knock down':
+                    # 如果受击硬直已经结束，立刻起立；否则保持躺地，等 update 里硬直结束再起立
+                    if not self.is_hit:
+                        self.status = 'idle'
+                        self.invincible_timer = 0.40  # 起立起身无敌帧 0.4 秒，防止无限起身压制
+                elif self.status in ['jump', 'jump attack', 'super move 3', 'body hit', 'head hit']:
                     self.status = 'idle'
         
-        # 计算位置
-        new_pos = self.pos + self.direction * self.speed * dt
+        # 计算位置 (包括普通行走/跑动速度和物理击退滑行速度)
+        new_pos = self.pos + (self.direction * self.speed + self.knockback_velocity) * dt
+        
+        # 击退滑动速度指数级衰减 (高强度地面摩擦力衰减)
+        self.knockback_velocity.x *= 0.85
+        if abs(self.knockback_velocity.x) < 5.0:
+            self.knockback_velocity.x = 0
         
         # 边界限制 (支持摄像机滚动，扩大舞台物理边界)
         from src.settings import SCREEN_WIDTH
@@ -230,23 +328,27 @@ class Player(pygame.sprite.Sprite):
         if -500 < new_pos.x < SCREEN_WIDTH + 500:
             self.pos.x = new_pos.x
         
-
-
         self.rect = self.image.get_rect(midbottom=self.pos)
+
     def handle_input(self):
         ctrl = self.device_info['controller']
+        
+        # 寻找对手，用于瞬时自动面向修正 (Auto-Facing Correction)
+        opponent = next((p for p in self.groups()[0] if isinstance(p, Player) and p != self), None)
         
         # 如果移动锁激活，且玩家已经松开了所有方向键，则解除锁定
         if self.movement_locked:
             if not (ctrl.performed('left') or ctrl.performed('right') or ctrl.performed('up') or ctrl.performed('down')):
                 self.movement_locked = False
 
-        # 连招链检测 (Attack -> Combo)
+        # 连击链检测 (Attack -> Combo)
         if self.status == 'attack':
             if ctrl.performed('attack') and self.image_index >= 2.0:
                 if 'combo' in self.images:
                     self.status = 'combo'
                     self.image_index = 0
+                    if opponent:
+                        self.to_right = (opponent.pos.x > self.pos.x)
 
         # 切换状态
         if self.status == 'idle':
@@ -268,6 +370,10 @@ class Player(pygame.sprite.Sprite):
                     self.status = key
                     self.image_index = 0
                     
+                    # 瞬时面向修正 (仅针对大招与终结技)
+                    if key in ['super move 1', 'super move 2', 'finisher'] and opponent:
+                        self.to_right = (opponent.pos.x > self.pos.x)
+                        
                     # 如果是从奔跑中触发其他任何招式（跳跃、必杀技、终结技），全部施加移动锁（落后/收招后处于僵直）
                     if prev_status == 'run':
                         self.movement_locked = True
@@ -285,6 +391,8 @@ class Player(pygame.sprite.Sprite):
                 if ctrl.performed('attack'):
                     self.status = 'attack'
                     self.image_index = 0
+                    if opponent:
+                        self.to_right = (opponent.pos.x > self.pos.x)
 
         if self.status in ['walk', 'jump', 'jump attack']:
             # 水平运动状态
@@ -307,12 +415,16 @@ class Player(pygame.sprite.Sprite):
                     self.image_index = 0
                     self.direction.x *= 2.0  # 冲刺攻击位移倍率 2.0
                     self.movement_locked = True
+                    if opponent:
+                        self.to_right = (opponent.pos.x > self.pos.x)
                 else:
                     # Dora 没有 dash attack, 回退到普通攻击但给予冲刺滑行
                     self.status = 'attack'
                     self.image_index = 0
                     self.direction.x *= 1.5
                     self.movement_locked = True
+                    if opponent:
+                        self.to_right = (opponent.pos.x > self.pos.x)
             elif ctrl.performed('run left'):
                 self.direction.x = -3
                 self.to_right = False
@@ -326,7 +438,13 @@ class Player(pygame.sprite.Sprite):
             if ctrl.performed('attack'):
                 if 'jump attack' in self.images:  # 部分人物确动画
                     self.status = 'jump attack'
+                    if opponent:
+                        self.to_right = (opponent.pos.x > self.pos.x)
             elif ctrl.performed('super move 1'):
                 self.status = 'super move 3'
-            # 跳起水平速度增益
-            self.direction.x *= 1.5
+                if opponent:
+                    self.to_right = (opponent.pos.x > self.pos.x)
+                
+        if self.status in ['jump', 'jump attack']:
+            # 跳起水平速度增益 (从 1.5 提升至 2.2，让空中方向盘摇杆移动显著变快)
+            self.direction.x *= 2.2

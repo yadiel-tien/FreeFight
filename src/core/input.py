@@ -319,7 +319,7 @@ class GameInput:
 
     @property
     def joinable(self) -> bool:
-        return self.joined_count() < 4
+        return self.joined_count() < 2
 
     def join(self, instance_id: int, name: str) -> None:
         self.controllers[instance_id]['player_index'] = f'p{self.joined_count() + 1}'
@@ -339,7 +339,7 @@ class GameInput:
             if dic['player_index'] != 'p0':
                 if dic['confirmed']: count += 1
                 else: return False
-        return count > 0
+        return count == 2
 
     def get_confirm_hint(self, lang='zh_CN') -> str: return self._get_action_hint('confirm')
     def get_menu_hint(self, lang='zh_CN') -> str: return self._get_action_hint('cancel')

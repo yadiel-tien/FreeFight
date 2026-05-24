@@ -7,35 +7,66 @@ from src.core.support import resource_path
 
 
 class PlayerInfoCard:
-    def __init__(self, pos, image, surface: pygame.Surface):
-        self.pos = pos
-        self.image = pygame.transform.scale(image, (50, 50))
-        x, y = pos
-        self.blood_rect = pygame.rect.Rect(x + 70, y + 10, 150, 20)
+    def __init__(self, player_index, image, surface: pygame.Surface):
+        self.player_index = player_index
         self.screen = surface
-
-    def display(self, health, max_health) -> None:
-        self.screen.blit(self.image, self.pos)
-        # 底色
-        pygame.draw.rect(self.screen, 'black', self.blood_rect)
-        # 边框
-        pygame.draw.rect(self.screen, 'black', self.blood_rect, 2)
+        self.avatar = pygame.transform.scale(image, (64, 64)) # 放大头像，更具冲击力
         
-        # 计算比例
-        ratio = max(0.0, min(1.0, health / max_health))
-        rect = self.blood_rect.copy().inflate(-4, -4)
-        rect.w *= ratio
-        
-        # 颜色变化: 绿色 -> 黄色 -> 红色
-        if ratio > 0.5:
-            color = (0, 255, 0) # Green
-        elif ratio > 0.2:
-            color = (255, 255, 0) # Yellow
+        from src.settings import SCREEN_WIDTH
+        if player_index == 'p1':
+            # P1 (左侧)：头像在最左边，血条向右伸展
+            self.avatar_pos = (20, 20)
+            self.blood_rect = pygame.rect.Rect(95, 30, 480, 24)
         else:
-            color = (255, 0, 0) # Red
+            # P2 (右侧)：头像在最右边，血条向左伸展
+            self.avatar_pos = (SCREEN_WIDTH - 20 - 64, 20)
+            self.blood_rect = pygame.rect.Rect(SCREEN_WIDTH - 95 - 480, 30, 480, 24)
+
+    def display(self, health, shadow_health, max_health) -> None:
+        # 1. 绘制头像
+        self.screen.blit(self.avatar, self.avatar_pos)
+        
+        # 2. 绘制黑色血条背景底槽与细白描边
+        pygame.draw.rect(self.screen, (20, 20, 20), self.blood_rect, border_radius=4)
+        pygame.draw.rect(self.screen, (80, 80, 80), self.blood_rect, 1, border_radius=4)
+        
+        # 3. 计算比例
+        shadow_ratio = max(0.0, min(1.0, shadow_health / max_health))
+        actual_ratio = max(0.0, min(1.0, health / max_health))
+        
+        # 4. 绘制红色残血阴影层 (Damage Shadow Bar)
+        shadow_rect = self.blood_rect.copy().inflate(-4, -4)
+        shadow_w = int(shadow_rect.w * shadow_ratio)
+        
+        if self.player_index == 'p1':
+            # P1 正常从左往右增长
+            shadow_rect.w = shadow_w
+        else:
+            # P2 镜像：右对齐往左生长
+            shadow_rect.x = shadow_rect.right - shadow_w
+            shadow_rect.w = shadow_w
             
-        # 血量
-        pygame.draw.rect(self.screen, color, rect)
+        pygame.draw.rect(self.screen, (200, 30, 30), shadow_rect, border_radius=2)
+        
+        # 5. 绘制实际当前血条层 (Actual Health Bar)
+        rect = self.blood_rect.copy().inflate(-4, -4)
+        actual_w = int(rect.w * actual_ratio)
+        
+        if self.player_index == 'p1':
+            rect.w = actual_w
+        else:
+            rect.x = rect.right - actual_w
+            rect.w = actual_w
+            
+        # 根据实际血量比例动态变色 (绿 -> 黄 -> 红)
+        if actual_ratio > 0.5:
+            color = (0, 230, 100) # 亮绿
+        elif actual_ratio > 0.2:
+            color = (240, 200, 10) # 亮黄
+        else:
+            color = (255, 30, 30) # 亮红
+            
+        pygame.draw.rect(self.screen, color, rect, border_radius=2)
 
 
 class HitSpark(pygame.sprite.Sprite):
