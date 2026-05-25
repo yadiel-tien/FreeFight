@@ -78,6 +78,21 @@ class Player(pygame.sprite.Sprite):
         self.ghosts = []
         self.ghost_timer = 0
 
+        # 载入可视化编辑器绘制的碰撞盒数据
+        import os
+        import json
+        from src.core.support import resource_path
+        collision_path = resource_path(f'assets/graphics/sprites/{info["player_name"]}/collision.json')
+        if os.path.exists(collision_path):
+            try:
+                with open(collision_path, 'r', encoding='utf-8') as f:
+                    self.collision_boxes = json.load(f)
+            except Exception as e:
+                print(f"载入碰撞盒 JSON 失败: {e}")
+                self.collision_boxes = {}
+        else:
+            self.collision_boxes = {}
+
     def update_image(self, dt):
         # frames是一个系列动画图片的列表
         frames = self.images[self.status]
@@ -145,8 +160,20 @@ class Player(pygame.sprite.Sprite):
                 })
 
     def get_hurtbox(self):
-        # 更加精细的受击盒：根据图片实际缩放后的尺寸计算
-        # 宽度收缩更多（胸腹部受击），高度稍微降低（头部以下）
+        status = self.status
+        frame_key = f"frame_{int(self.image_index)}"
+        
+        # 严格数据驱动：直接从 JSON 中读取受击盒 (Hurtbox)
+        if hasattr(self, 'collision_boxes') and status in self.collision_boxes and frame_key in self.collision_boxes[status]:
+            box_data = self.collision_boxes[status][frame_key].get("hurtbox")
+            if box_data:
+                bx, by, bw, bh = box_data
+                if self.to_right:
+                    w, h = self.image.get_size()
+                    bx = w - bx - bw
+                return pygame.Rect(self.rect.x + bx, self.rect.y + by, bw, bh)
+                
+        # 极端情况默认兜底
         hurtbox = self.rect.copy()
         hurtbox.width = int(self.rect.width * 0.4)
         hurtbox.height = int(self.rect.height * 0.8)
@@ -154,56 +181,44 @@ class Player(pygame.sprite.Sprite):
         return hurtbox
 
     def get_hitbox(self):
-        # 前摇蓄力期间不产生任何判定框，此时大招没有任何伤害范围
+        # 前摇蓄力期间不产生任何判定框
         if self.is_startup:
             return None
 
-        # 只有在攻击动作的活跃帧内才产生判定盒
-        if self.status in self.attack_data and self.status in self.images:
-            frames = self.images[self.status]
-            total_frames = len(frames)
-            
-            # 动态计算活跃帧区间，防止 GIF 帧数极少导致硬编码活跃帧失效
-            if self.status in ['attack', 'combo', 'dash attack', 'jump attack']:
-                # 轻攻击/普通/跑攻/跳攻：第 1 帧到最后一帧 (留 1 帧前摇，如果是单帧则直接第 0 帧)
-                start_frame = max(0, min(1, total_frames - 1))
-                end_frame = max(0, total_frames - 1)
-            else:
-                # 重攻击/必杀技/终结技：前摇 30% 到 90%
-                start_frame = int(total_frames * 0.3)
-                end_frame = max(start_frame, int(total_frames * 0.9))
-            
-            if start_frame <= self.image_index <= end_frame:
-                # 判定盒尺寸优化：根据动作类型调整
-                if self.status in ['super move 1', 'super move 2', 'super move 3', 'finisher']:
-                    # 重攻击/必杀技拥有大范围霸道的判定盒 (70% 宽度，40% 高度)
-                    hw = int(self.rect.width * 0.7)
-                    hh = int(self.rect.height * 0.4)
-                else:
-                    # 普通攻击/轻攻击判定盒 (25% 宽度，20% 高度)，必须贴近碰到人才有判定
-                    hw = int(self.rect.width * 0.25)
-                    hh = int(self.rect.height * 0.2)
-                
-                # 针对特定招式调整判定高度
-                y_offset = 0
-                if self.status == 'jump attack':
-                    y_offset = 20 # 踢腿偏下
-                elif self.status == 'head hit': # 某些特殊动作
-                    y_offset = -30
-
-                hitbox = pygame.Rect(0, 0, hw, hh)
-                
-                # 核心：根据面向（to_right）精准放置在拳头/脚部位置
+        status = self.status
+        frame_key = f"frame_{int(self.image_index)}"
+        
+        # 严格数据驱动：直接从 JSON 中读取攻击盒 (Hitbox)
+        if hasattr(self, 'collision_boxes') and status in self.collision_boxes and frame_key in self.collision_boxes[status]:
+            box_data = self.collision_boxes[status][frame_key].get("hitbox")
+            if box_data:
+                bx, by, bw, bh = box_data
                 if self.to_right:
-                    hitbox.midleft = self.rect.center
-                    hitbox.x += 10 # 稍微向外偏移
-                else:
-                    hitbox.midright = self.rect.center
-                    hitbox.x -= 10
-                
-                hitbox.y += y_offset
-                return hitbox
+                    w, h = self.image.get_size()
+                    bx = w - bx - bw
+                return pygame.Rect(self.rect.x + bx, self.rect.y + by, bw, bh)
         return None
+
+    def get_pushbox(self):
+        status = self.status
+        frame_key = f"frame_{int(self.image_index)}"
+        
+        # 严格数据驱动：直接从 JSON 中读取身体物理阻挡盒 (Pushbox)
+        if hasattr(self, 'collision_boxes') and status in self.collision_boxes and frame_key in self.collision_boxes[status]:
+            box_data = self.collision_boxes[status][frame_key].get("pushbox")
+            if box_data:
+                bx, by, bw, bh = box_data
+                if self.to_right:
+                    w, h = self.image.get_size()
+                    bx = w - bx - bw
+                return pygame.Rect(self.rect.x + bx, self.rect.y + by, bw, bh)
+                
+        # 极端情况默认兜底
+        pw = 60
+        ph = 130
+        px = self.rect.centerx - pw // 2
+        py = self.rect.bottom - ph
+        return pygame.Rect(px, py, pw, ph)
 
     def take_hit(self, damage, knockback, attacker):
         # 仅在非受击状态、没死、且无敌帧已结束时才接受受击
@@ -260,14 +275,30 @@ class Player(pygame.sprite.Sprite):
                 attacker.knockback_velocity.x = attacker_push_dir * (knockback * 75.0 * 0.25)
 
     def resolve_player_collision(self, other):
-        # 简单的圆形/距离碰撞，防止重叠
-        dist = self.pos.x - other.pos.x
-        min_dist = 60 # 最小间距
-        if abs(dist) < min_dist and abs(self.pos.y - other.pos.y) < 30:
-            push = (min_dist - abs(dist)) * 0.5
-            direction = 1 if dist > 0 else -1
-            self.pos.x += direction * push
-            other.pos.x -= direction * push
+        # 基于 Pushbox (身体推挤盒) 的精确碰撞消解，防止人物重叠
+        pb1 = self.get_pushbox()
+        pb2 = other.get_pushbox()
+        
+        if pb1.colliderect(pb2):
+            # 计算水平重叠的大小
+            overlap_x = min(pb1.right, pb2.right) - max(pb1.left, pb2.left)
+            
+            # 仅当高度也有交集时才在水平方向推开
+            if pb1.bottom > pb2.top and pb2.bottom > pb1.top:
+                # 确定推开的方向
+                if pb1.centerx != pb2.centerx:
+                    direction = 1 if pb1.centerx > pb2.centerx else -1
+                else:
+                    direction = 1 if self.device_info['player_index'] == 'p1' else -1
+                    
+                # 平分推力，消解重叠
+                push = overlap_x * 0.5
+                self.pos.x += direction * push
+                other.pos.x -= direction * push
+                
+                # 同步更新图像的物理外框位置，防止判定帧滞后抖动
+                self.rect.midbottom = self.pos
+                other.rect.midbottom = other.pos
 
     def update(self, dt):
         if dt > 0:

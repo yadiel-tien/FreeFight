@@ -24,6 +24,7 @@ class SceneStatus(Enum):
     FIGHTING = 4
     SETTINGS = 5
     EXIT = 6
+    EDITOR = 7
 
 
 class Scene:

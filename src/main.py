@@ -5,6 +5,7 @@ from src.ui.components.dialogue import Dialogue
 from src.core.input import GameInput
 from src.scenes.level import Level
 from src.scenes.scene import SceneStatus, Home, RolePicker, Settings
+from src.scenes.editor import HitboxEditorScene
 from src.settings import *
 
 
@@ -25,7 +26,10 @@ class Game:
         self.clock = pygame.time.Clock()
         self.game_input = GameInput()
         self.current_scene = SceneStatus.UNDEFINED
-        self.next_scene = SceneStatus.HOME
+        if "--editor" in sys.argv or "-e" in sys.argv:
+            self.next_scene = SceneStatus.EDITOR
+        else:
+            self.next_scene = SceneStatus.HOME
         self.scene = None
         # 全局对话框 (仅用于点击窗口 X 按钮的强行退出)
         self.dialogue = Dialogue(self.game_input, self.display_surf)
@@ -47,6 +51,8 @@ class Game:
                     self.scene = Level(self.game_input, self.display_surf)
                 elif self.next_scene == SceneStatus.SETTINGS:
                     self.scene = Settings(self.game_input, self.display_surf)
+                elif self.next_scene == SceneStatus.EDITOR:
+                    self.scene = HitboxEditorScene(self.game_input, self.display_surf)
                 self.current_scene = self.next_scene
 
             # 2. 事件处理
@@ -56,6 +62,8 @@ class Game:
                     # 点击窗口关闭按钮，默认由键盘设备处理
                     self.dialogue.show('确定要退出吗？', self.game_input.controllers[-1])
                 self.game_input.update(event)
+                if hasattr(self.scene, 'handle_event'):
+                    self.scene.handle_event(event)
             
             # 持续更新输入状态 (处理长按计时等)
             self.game_input.update_timers(dt)

@@ -446,6 +446,9 @@ class Level(Scene):
                 hitbox = player.get_hitbox()
                 if hitbox:
                     pygame.draw.rect(self.screen, (255, 0, 0), hitbox.move(-self.camera_offset.x, -self.camera_offset.y), 2)
+                # 绘制推挤盒 (蓝色)
+                pushbox = player.get_pushbox()
+                pygame.draw.rect(self.screen, (60, 160, 255), pushbox.move(-self.camera_offset.x, -self.camera_offset.y), 2)
         
         # 第三层：特效
         for sprite in self.effect_sprites:
