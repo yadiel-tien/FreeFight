@@ -1,0 +1,1355 @@
+{
+    "run": {
+        "frame_0": {
+            "hurtbox": [
+                150,
+                174,
+                195,
+                349
+            ],
+            "hitbox": null,
+            "pushbox": [
+                160,
+                167,
+                152,
+                355
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                122,
+                132,
+                171,
+                418
+            ],
+            "hitbox": null,
+            "pushbox": [
+                132,
+                145,
+                152,
+                395
+            ]
+        },
+        "frame_2": {
+            "hurtbox": [
+                126,
+                176,
+                214,
+                362
+            ],
+            "hitbox": null,
+            "pushbox": [
+                128,
+                182,
+                204,
+                350
+            ]
+        },
+        "frame_3": {
+            "hurtbox": [
+                104,
+                135,
+                188,
+                414
+            ],
+            "hitbox": null,
+            "pushbox": [
+                113,
+                144,
+                150,
+                396
+            ]
+        }
+    },
+    "knock down": {
+        "frame_0": {
+            "hurtbox": [
+                101,
+                35,
+                207,
+                408
+            ],
+            "hitbox": null,
+            "pushbox": [
+                117,
+                54,
+                119,
+                372
+            ]
+        },
+        "frame_1": {
+            "hurtbox": null,
+            "hitbox": null,
+            "pushbox": [
+                133,
+                339,
+                248,
+                86
+            ]
+        }
+    },
+    "walk": {
+        "frame_0": {
+            "hurtbox": [
+                209,
+                52,
+                136,
+                446
+            ],
+            "hitbox": null,
+            "pushbox": [
+                215,
+                64,
+                119,
+                436
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                214,
+                66,
+                125,
+                434
+            ],
+            "hitbox": null,
+            "pushbox": [
+                234,
+                75,
+                95,
+                420
+            ]
+        },
+        "frame_2": {
+            "hurtbox": [
+                198,
+                61,
+                138,
+                439
+            ],
+            "hitbox": null,
+            "pushbox": [
+                215,
+                75,
+                101,
+                416
+            ]
+        }
+    },
+    "jump attack": {
+        "frame_0": {
+            "hurtbox": [
+                174,
+                173,
+                247,
+                299
+            ],
+            "hitbox": [
+                31,
+                330,
+                241,
+                118
+            ],
+            "pushbox": [
+                257,
+                164,
+                132,
+                301
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                205,
+                163,
+                233,
+                321
+            ],
+            "hitbox": [
+                45,
+                335,
+                200,
+                107
+            ],
+            "pushbox": [
+                219,
+                173,
+                210,
+                302
+            ]
+        }
+    },
+    "head hit": {
+        "frame_0": {
+            "hurtbox": [
+                179,
+                68,
+                113,
+                413
+            ],
+            "hitbox": null,
+            "pushbox": [
+                189,
+                78,
+                95,
+                404
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                179,
+                68,
+                113,
+                413
+            ],
+            "hitbox": null,
+            "pushbox": [
+                189,
+                78,
+                95,
+                404
+            ]
+        },
+        "frame_2": {
+            "hurtbox": [
+                193,
+                94,
+                111,
+                387
+            ],
+            "hitbox": null,
+            "pushbox": [
+                198,
+                110,
+                86,
+                372
+            ]
+        }
+    },
+    "finisher": {
+        "frame_0": {
+            "hurtbox": [
+                176,
+                165,
+                110,
+                401
+            ],
+            "hitbox": null,
+            "pushbox": [
+                187,
+                173,
+                91,
+                384
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                176,
+                165,
+                110,
+                401
+            ],
+            "hitbox": null,
+            "pushbox": [
+                187,
+                173,
+                91,
+                384
+            ]
+        },
+        "frame_2": {
+            "hurtbox": [
+                176,
+                165,
+                110,
+                401
+            ],
+            "hitbox": [
+                0,
+                143,
+                500,
+                438
+            ],
+            "pushbox": [
+                187,
+                173,
+                91,
+                384
+            ]
+        },
+        "frame_3": {
+            "hurtbox": [
+                176,
+                165,
+                110,
+                401
+            ],
+            "hitbox": [
+                1,
+                126,
+                497,
+                473
+            ],
+            "pushbox": [
+                187,
+                173,
+                91,
+                384
+            ]
+        }
+    },
+    "attack": {
+        "frame_0": {
+            "hurtbox": [
+                192,
+                63,
+                106,
+                395
+            ],
+            "hitbox": null,
+            "pushbox": [
+                208,
+                70,
+                93,
+                404
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                204,
+                60,
+                104,
+                419
+            ],
+            "hitbox": [
+                70,
+                108,
+                100,
+                62
+            ],
+            "pushbox": [
+                208,
+                70,
+                93,
+                404
+            ]
+        }
+    },
+    "dash attack": {
+        "frame_0": {
+            "hurtbox": [
+                190,
+                88,
+                139,
+                385
+            ],
+            "hitbox": null,
+            "pushbox": [
+                196,
+                94,
+                130,
+                354
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                168,
+                114,
+                211,
+                368
+            ],
+            "hitbox": [
+                38,
+                134,
+                126,
+                90
+            ],
+            "pushbox": [
+                172,
+                131,
+                171,
+                299
+            ]
+        }
+    },
+    "combo": {
+        "frame_0": {
+            "hurtbox": [
+                200,
+                60,
+                104,
+                392
+            ],
+            "hitbox": null,
+            "pushbox": [
+                204,
+                67,
+                97,
+                371
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                200,
+                60,
+                104,
+                392
+            ],
+            "hitbox": [
+                69,
+                120,
+                124,
+                57
+            ],
+            "pushbox": [
+                204,
+                67,
+                97,
+                371
+            ]
+        },
+        "frame_2": {
+            "hurtbox": [
+                200,
+                60,
+                104,
+                392
+            ],
+            "hitbox": [
+                103,
+                108,
+                93,
+                64
+            ],
+            "pushbox": [
+                204,
+                67,
+                97,
+                371
+            ]
+        },
+        "frame_3": {
+            "hurtbox": [
+                200,
+                60,
+                104,
+                392
+            ],
+            "hitbox": [
+                60,
+                106,
+                132,
+                70
+            ],
+            "pushbox": [
+                204,
+                67,
+                97,
+                371
+            ]
+        }
+    },
+    "jump": {
+        "frame_0": {
+            "hurtbox": [
+                159,
+                106,
+                140,
+                386
+            ],
+            "hitbox": null,
+            "pushbox": [
+                184,
+                111,
+                104,
+                374
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                199,
+                65,
+                112,
+                429
+            ],
+            "hitbox": null,
+            "pushbox": [
+                216,
+                70,
+                89,
+                419
+            ]
+        },
+        "frame_2": {
+            "hurtbox": [
+                182,
+                102,
+                107,
+                391
+            ],
+            "hitbox": null,
+            "pushbox": [
+                184,
+                106,
+                104,
+                391
+            ]
+        },
+        "frame_3": {
+            "hurtbox": [
+                165,
+                16,
+                143,
+                470
+            ],
+            "hitbox": null,
+            "pushbox": [
+                183,
+                21,
+                106,
+                460
+            ]
+        }
+    },
+    "super move 3": {
+        "frame_0": {
+            "hurtbox": [
+                161,
+                82,
+                134,
+                432
+            ],
+            "hitbox": null,
+            "pushbox": [
+                177,
+                98,
+                108,
+                397
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                161,
+                82,
+                134,
+                432
+            ],
+            "hitbox": null,
+            "pushbox": [
+                177,
+                98,
+                108,
+                397
+            ]
+        },
+        "frame_2": {
+            "hurtbox": [
+                161,
+                82,
+                134,
+                432
+            ],
+            "hitbox": null,
+            "pushbox": [
+                177,
+                98,
+                108,
+                397
+            ]
+        },
+        "frame_3": {
+            "hurtbox": [
+                161,
+                82,
+                134,
+                432
+            ],
+            "hitbox": null,
+            "pushbox": [
+                177,
+                98,
+                108,
+                397
+            ]
+        },
+        "frame_4": {
+            "hurtbox": [
+                161,
+                82,
+                134,
+                432
+            ],
+            "hitbox": null,
+            "pushbox": [
+                177,
+                98,
+                108,
+                397
+            ]
+        },
+        "frame_5": {
+            "hurtbox": [
+                161,
+                82,
+                134,
+                432
+            ],
+            "hitbox": null,
+            "pushbox": [
+                177,
+                98,
+                108,
+                397
+            ]
+        },
+        "frame_6": {
+            "hurtbox": [
+                202,
+                83,
+                128,
+                443
+            ],
+            "hitbox": null,
+            "pushbox": [
+                230,
+                86,
+                96,
+                439
+            ]
+        },
+        "frame_7": {
+            "hurtbox": [
+                161,
+                82,
+                134,
+                432
+            ],
+            "hitbox": [
+                -145,
+                97,
+                302,
+                412
+            ],
+            "pushbox": [
+                177,
+                98,
+                108,
+                397
+            ]
+        }
+    },
+    "victory": {
+        "frame_0": {
+            "hurtbox": [
+                173,
+                93,
+                147,
+                428
+            ],
+            "hitbox": null,
+            "pushbox": [
+                190,
+                112,
+                120,
+                407
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                173,
+                93,
+                147,
+                428
+            ],
+            "hitbox": null,
+            "pushbox": [
+                190,
+                112,
+                120,
+                407
+            ]
+        },
+        "frame_2": {
+            "hurtbox": [
+                173,
+                93,
+                147,
+                428
+            ],
+            "hitbox": null,
+            "pushbox": [
+                190,
+                112,
+                120,
+                407
+            ]
+        },
+        "frame_3": {
+            "hurtbox": [
+                173,
+                93,
+                147,
+                428
+            ],
+            "hitbox": null,
+            "pushbox": [
+                190,
+                112,
+                120,
+                407
+            ]
+        },
+        "frame_4": {
+            "hurtbox": [
+                173,
+                93,
+                147,
+                428
+            ],
+            "hitbox": null,
+            "pushbox": [
+                190,
+                112,
+                120,
+                407
+            ]
+        },
+        "frame_5": {
+            "hurtbox": [
+                173,
+                93,
+                147,
+                428
+            ],
+            "hitbox": null,
+            "pushbox": [
+                190,
+                112,
+                120,
+                407
+            ]
+        },
+        "frame_6": {
+            "hurtbox": [
+                173,
+                93,
+                147,
+                428
+            ],
+            "hitbox": null,
+            "pushbox": [
+                190,
+                112,
+                120,
+                407
+            ]
+        },
+        "frame_7": {
+            "hurtbox": [
+                173,
+                93,
+                147,
+                428
+            ],
+            "hitbox": null,
+            "pushbox": [
+                190,
+                112,
+                120,
+                407
+            ]
+        },
+        "frame_8": {
+            "hurtbox": [
+                173,
+                93,
+                147,
+                428
+            ],
+            "hitbox": null,
+            "pushbox": [
+                190,
+                112,
+                120,
+                407
+            ]
+        },
+        "frame_9": {
+            "hurtbox": [
+                173,
+                93,
+                147,
+                428
+            ],
+            "hitbox": null,
+            "pushbox": [
+                190,
+                112,
+                120,
+                407
+            ]
+        },
+        "frame_10": {
+            "hurtbox": [
+                173,
+                93,
+                147,
+                428
+            ],
+            "hitbox": null,
+            "pushbox": [
+                190,
+                112,
+                120,
+                407
+            ]
+        },
+        "frame_11": {
+            "hurtbox": [
+                173,
+                93,
+                147,
+                428
+            ],
+            "hitbox": null,
+            "pushbox": [
+                190,
+                112,
+                120,
+                407
+            ]
+        }
+    },
+    "super move 2": {
+        "frame_0": {
+            "hurtbox": [
+                179,
+                81,
+                138,
+                405
+            ],
+            "hitbox": null,
+            "pushbox": [
+                196,
+                100,
+                98,
+                374
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                174,
+                123,
+                163,
+                368
+            ],
+            "hitbox": null,
+            "pushbox": [
+                193,
+                130,
+                135,
+                355
+            ]
+        },
+        "frame_2": {
+            "hurtbox": [
+                116,
+                266,
+                217,
+                228
+            ],
+            "hitbox": [
+                -70,
+                255,
+                605,
+                240
+            ],
+            "pushbox": [
+                134,
+                279,
+                185,
+                210
+            ]
+        }
+    },
+    "idle": {
+        "frame_0": {
+            "hurtbox": [
+                185,
+                64,
+                98,
+                416
+            ],
+            "hitbox": null,
+            "pushbox": [
+                198,
+                78,
+                73,
+                392
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                185,
+                64,
+                98,
+                416
+            ],
+            "hitbox": null,
+            "pushbox": [
+                198,
+                78,
+                73,
+                392
+            ]
+        },
+        "frame_2": {
+            "hurtbox": [
+                185,
+                64,
+                98,
+                416
+            ],
+            "hitbox": null,
+            "pushbox": [
+                198,
+                78,
+                73,
+                392
+            ]
+        },
+        "frame_3": {
+            "hurtbox": [
+                185,
+                64,
+                98,
+                416
+            ],
+            "hitbox": null,
+            "pushbox": [
+                198,
+                78,
+                73,
+                392
+            ]
+        }
+    },
+    "body hit": {
+        "frame_0": {
+            "hurtbox": [
+                194,
+                60,
+                100,
+                398
+            ],
+            "hitbox": null,
+            "pushbox": [
+                205,
+                74,
+                80,
+                369
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                194,
+                60,
+                100,
+                398
+            ],
+            "hitbox": null,
+            "pushbox": [
+                205,
+                74,
+                80,
+                369
+            ]
+        },
+        "frame_2": {
+            "hurtbox": [
+                173,
+                141,
+                122,
+                322
+            ],
+            "hitbox": null,
+            "pushbox": [
+                187,
+                141,
+                117,
+                321
+            ]
+        },
+        "frame_3": {
+            "hurtbox": [
+                241,
+                104,
+                95,
+                351
+            ],
+            "hitbox": null,
+            "pushbox": [
+                245,
+                174,
+                102,
+                245
+            ]
+        }
+    },
+    "show off": {
+        "frame_0": {
+            "hurtbox": null,
+            "hitbox": null,
+            "pushbox": [
+                208,
+                128,
+                73,
+                365
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                150,
+                50,
+                200,
+                400
+            ],
+            "hitbox": null,
+            "pushbox": [
+                220,
+                370,
+                60,
+                130
+            ]
+        },
+        "frame_2": {
+            "hurtbox": [
+                150,
+                50,
+                200,
+                400
+            ],
+            "hitbox": null,
+            "pushbox": [
+                220,
+                370,
+                60,
+                130
+            ]
+        },
+        "frame_3": {
+            "hurtbox": [
+                150,
+                50,
+                200,
+                400
+            ],
+            "hitbox": null,
+            "pushbox": [
+                220,
+                370,
+                60,
+                130
+            ]
+        },
+        "frame_4": {
+            "hurtbox": [
+                150,
+                50,
+                200,
+                400
+            ],
+            "hitbox": null,
+            "pushbox": [
+                220,
+                370,
+                60,
+                130
+            ]
+        },
+        "frame_5": {
+            "hurtbox": [
+                150,
+                50,
+                200,
+                400
+            ],
+            "hitbox": null,
+            "pushbox": [
+                220,
+                370,
+                60,
+                130
+            ]
+        },
+        "frame_6": {
+            "hurtbox": [
+                150,
+                50,
+                200,
+                400
+            ],
+            "hitbox": null,
+            "pushbox": [
+                220,
+                370,
+                60,
+                130
+            ]
+        },
+        "frame_7": {
+            "hurtbox": [
+                150,
+                50,
+                200,
+                400
+            ],
+            "hitbox": null,
+            "pushbox": [
+                220,
+                370,
+                60,
+                130
+            ]
+        },
+        "frame_8": {
+            "hurtbox": [
+                150,
+                50,
+                200,
+                400
+            ],
+            "hitbox": null,
+            "pushbox": [
+                220,
+                370,
+                60,
+                130
+            ]
+        },
+        "frame_9": {
+            "hurtbox": [
+                150,
+                50,
+                200,
+                400
+            ],
+            "hitbox": null,
+            "pushbox": [
+                220,
+                370,
+                60,
+                130
+            ]
+        }
+    },
+    "super move 1": {
+        "frame_0": {
+            "hurtbox": [
+                210,
+                63,
+                122,
+                426
+            ],
+            "hitbox": null,
+            "pushbox": [
+                216,
+                73,
+                115,
+                406
+            ]
+        },
+        "frame_1": {
+            "hurtbox": [
+                185,
+                72,
+                150,
+                420
+            ],
+            "hitbox": [
+                55,
+                115,
+                142,
+                54
+            ],
+            "pushbox": [
+                204,
+                81,
+                118,
+                400
+            ]
+        },
+        "frame_2": {
+            "hurtbox": [
+                197,
+                65,
+                132,
+                417
+            ],
+            "hitbox": null,
+            "pushbox": [
+                207,
+                93,
+                92,
+                355
+            ]
+        },
+        "frame_3": {
+            "hurtbox": [
+                181,
+                73,
+                145,
+                421
+            ],
+            "hitbox": [
+                42,
+                100,
+                157,
+                88
+            ],
+            "pushbox": [
+                203,
+                91,
+                103,
+                384
+            ]
+        },
+        "frame_4": {
+            "hurtbox": [
+                208,
+                64,
+                125,
+                428
+            ],
+            "hitbox": null,
+            "pushbox": [
+                214,
+                75,
+                112,
+                393
+            ]
+        },
+        "frame_5": {
+            "hurtbox": [
+                179,
+                67,
+                149,
+                433
+            ],
+            "hitbox": [
+                42,
+                103,
+                148,
+                86
+            ],
+            "pushbox": [
+                200,
+                93,
+                118,
+                394
+            ]
+        },
+        "frame_6": {
+            "hurtbox": [
+                199,
+                54,
+                127,
+                436
+            ],
+            "hitbox": [
+                49,
+                94,
+                151,
+                98
+            ],
+            "pushbox": [
+                210,
+                72,
+                89,
+                410
+            ]
+        },
+        "frame_7": {
+            "hurtbox": [
+                206,
+                73,
+                136,
+                409
+            ],
+            "hitbox": [
+                58,
+                91,
+                148,
+                83
+            ],
+            "pushbox": [
+                220,
+                90,
+                110,
+                395
+            ]
+        }
+    },
+    "character_stats": {
+        "max_health": 1000,
+        "speed": 150,
+        "gravity": 800,
+        "jump_strength": 500
+    },
+    "move_stats": {
+        "attack": {
+            "damage": 50,
+            "knockback": 10,
+            "startup": 0.0,
+            "recovery": 0.08,
+            "cost": 0
+        },
+        "combo": {
+            "damage": 30,
+            "knockback": 5,
+            "startup": 0.0,
+            "recovery": 0.06,
+            "cost": 0
+        },
+        "dash attack": {
+            "damage": 60,
+            "knockback": 20,
+            "startup": 0.0,
+            "recovery": 0.12,
+            "cost": 0
+        },
+        "jump attack": {
+            "damage": 40,
+            "knockback": 15,
+            "startup": 0.0,
+            "recovery": 0.0,
+            "cost": 0
+        },
+        "super move 1": {
+            "damage": 150,
+            "knockback": 40,
+            "startup": 0.35,
+            "recovery": 0.45,
+            "cost": 30
+        },
+        "super move 2": {
+            "damage": 200,
+            "knockback": 50,
+            "startup": 0.5,
+            "recovery": 0.6,
+            "cost": 40
+        },
+        "super move 3": {
+            "damage": 180,
+            "knockback": 45,
+            "startup": 0.25,
+            "recovery": 0.35,
+            "cost": 30
+        },
+        "finisher": {
+            "damage": 300,
+            "knockback": 100,
+            "startup": 0.7,
+            "recovery": 0.8,
+            "cost": 100
+        }
+    }
+}
