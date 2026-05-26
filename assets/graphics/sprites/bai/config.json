@@ -283,10 +283,10 @@
                 401
             ],
             "hitbox": [
-                1,
-                126,
-                497,
-                473
+                -61,
+                131,
+                621,
+                458
             ],
             "pushbox": [
                 187,
@@ -1289,8 +1289,8 @@
         }
     },
     "character_stats": {
-        "max_health": 1000,
-        "speed": 150,
+        "max_health": 850,
+        "speed": 180,
         "gravity": 800,
         "jump_strength": 500
     },
@@ -1310,39 +1310,39 @@
             "cost": 0
         },
         "dash attack": {
-            "damage": 60,
+            "damage": 80,
             "knockback": 20,
             "startup": 0.0,
             "recovery": 0.12,
             "cost": 0
         },
         "jump attack": {
-            "damage": 40,
+            "damage": 50,
             "knockback": 15,
             "startup": 0.0,
             "recovery": 0.0,
             "cost": 0
         },
         "super move 1": {
-            "damage": 150,
+            "damage": 120,
             "knockback": 40,
             "startup": 0.35,
             "recovery": 0.45,
             "cost": 30
         },
         "super move 2": {
-            "damage": 200,
+            "damage": 180,
             "knockback": 50,
             "startup": 0.5,
             "recovery": 0.6,
-            "cost": 40
+            "cost": 60
         },
         "super move 3": {
-            "damage": 180,
+            "damage": 210,
             "knockback": 45,
             "startup": 0.25,
             "recovery": 0.35,
-            "cost": 30
+            "cost": 70
         },
         "finisher": {
             "damage": 300,
