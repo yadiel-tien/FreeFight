@@ -15,6 +15,7 @@ FreeFight is a 2D fighting game built with Python and the Pygame library. It fea
 - **Dynamic Player Mechanics:** Complex state-based logic for movement, attacks, and special moves.
 - **Rich Animations:** Smooth frame-based animations extracted from GIFs.
 - **Multiplayer:** Local multiplayer support for up to 4 players.
+- **Visual Hitbox & Stats Editor:** A highly responsive developer/designer tool to visually draw, edit, and auto-save collision boxes (Hurtbox, Hitbox, Pushbox), customize character physical stats, and tweak combat move parameters in real time.
 
 ### Key Technologies
 - **Python 3**
@@ -56,6 +57,35 @@ To start the game as a module (recommended), run the following command from the 
 python -m src.main
 ```
 
+#### Running the Editor
+To start the visual hitbox and stats editor, run the game with the `--editor` or `-e` flag:
+```bash
+python -m src.main --editor
+# or
+python -m src.main -e
+```
+
+### Visual Hitbox & Stats Editor
+
+FreeFight includes a highly responsive, designer-friendly visual tool to tweak character physics, combat frame hitboxes, and action parameters in real time.
+
+#### Hotkeys & Canvas Controls
+- **1 / 2 / 3:** Switch active box drawing mode (1: Hurtbox 🟢, 2: Hitbox 🔴, 3: Pushbox 🔵)
+- **Mouse Left Drag:** Draw the box directly on the active character frame (autosaves on release)
+- **A / D (or Left / Right Arrow):** Navigate between animation frames
+- **W / S (or Up / Down Arrow):** Cycle through different action states (e.g. idle, attack, jump)
+- **C / DELETE:** Clear the selected box type on the current frame
+- **R:** Sync/Copy the current box configuration to all frames of this action
+- **F:** Flip character orientation (mirroring)
+- **B:** Toggle UI Theme Mode (Cyber Dark Grid / Daylight Light Grid)
+- **Ctrl + S (or Cmd + S):** Manually save configurations (in addition to auto-save)
+- **ESC:** Cancel active drawing or open the exit confirmation modal (Enter/Y to exit, ESC/N to cancel)
+
+#### Inspector Panel Tabs
+- **Move Stats:** Micro-adjust combat properties (Damage, Knockback, MP Cost, Startup time, Recovery frames) for specific combat action moves.
+- **Base Stats:** Customize global character physics (Max Health, Speed, Gravity, Jump Strength).
+- **Quick Help:** Interactive on-screen list of all shortcut keys.
+
 ### Architecture Overview
 - **Scene Management:** State-driven system for handling game transitions.
 - **Input System:** Abstracted controller logic for keyboards and joysticks.
@@ -81,6 +111,7 @@ FreeFight 是一款使用 Python 和 Pygame 库开发的 2D 格斗游戏。它�
 - **动态角色机制：** 复杂的基于状态的移动、攻击和特殊技能逻辑。
 - **丰富的动画：** 从 GIF 中提取的平滑帧动画。
 - **多玩家对战：** 支持最多 4 人的本地对战。
+- **可视化碰撞与属性编辑器：** 支持可视化绘制与自动保存碰撞盒（受击盒、攻击盒、推挤盒），并在右侧 Inspector 面板实时微调角色物理属性和招式数值参数。
 
 ### 关键技术
 - **Python 3**
@@ -121,6 +152,35 @@ FreeFight 是一款使用 Python 和 Pygame 库开发的 2D 格斗游戏。它�
 ```bash
 python -m src.main
 ```
+
+#### 运行编辑器
+若要启动可视化碰撞与数值属性编辑器，只需在启动命令后添加 `--editor` 或 `-e` 参数：
+```bash
+python -m src.main --editor
+# 或
+python -m src.main -e
+```
+
+### 可视化碰撞与属性编辑器
+
+FreeFight 包含一个功能丰富且极具极客风的可视化编辑器，允许开发者和设计师实时调整角色物理参数、格斗帧碰撞范围以及招式细节。
+
+#### 快捷键与画布操作
+- **数字键 1 / 2 / 3：** 切换当前编辑的碰撞盒类型（1: 受击盒 Hurtbox 🟢, 2: 攻击盒 Hitbox 🔴, 3: 推挤盒 Pushbox 🔵）
+- **鼠标左键拖拽：** 直接在中央角色帧画布上框选绘制碰撞范围（鼠标松开时会自动保存）
+- **A / D (或 方向键 左 / 右)：** 切换当前动作的上一帧/下一帧
+- **W / S (or 方向键 上 / 下)：** 切换上一动作/下一动作状态（如 idle, attack, jump 等）
+- **C / DELETE：** 清除当前帧中选中的碰撞盒类型
+- **R 键：** 快速复制当前碰撞盒配置到该动作的所有帧，并伴随自动保存及轻量级弹窗提示
+- **F 键：** 镜像翻转角色朝向
+- **B 键：** 切换编辑器整体界面主题（Cyber 深黑网格 / 舒适白昼灰网格）
+- **Ctrl + S (或 Cmd + S)：** 手动保存修改（所有操作均支持自动保存）
+- **ESC 键：** 取消当前框选绘制，或调出半透明退出确认弹窗（Enter/Y 确定退出，ESC/N 取消）
+
+#### 右侧属性检查器 (Inspector) 选项卡
+- **招式属性 (Move Stats)：** 实时微调特定战斗招式的核心参数（如伤害、击退距离、耗能、前摇时间、收招硬直时间）。
+- **角色属性 (Base Stats)：** 动态配置角色全局物理特性（如最大生命值、移动速度、重力加速度、跳跃高度）。
+- **快捷指令 (Help Tab)：** 内置按键快捷指南，方便随时查询。
 
 ### 架构概览
 - **场景管理：** 驱动游戏状态转换的系统。

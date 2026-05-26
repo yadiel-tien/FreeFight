@@ -2,12 +2,12 @@ import pygame
 from src.core.support import import_gifs_dict
 
 
-class DynamicBackGround(pygame.sprite.Sprite):
+class DynamicBackground(pygame.sprite.Sprite):
     def __init__(self, groups):
         super().__init__(groups)
         # 舞台总宽度比屏幕宽 1000 (左右各 500)
         # 所以背景图需要拉伸到足够覆盖这个范围
-        from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
+        from src.core.constants import SCREEN_WIDTH, SCREEN_HEIGHT
         self.width = SCREEN_WIDTH + 1000
         self.height = SCREEN_HEIGHT
         

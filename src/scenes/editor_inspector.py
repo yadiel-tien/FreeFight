@@ -25,14 +25,29 @@ class EditorInspector:
         
         # 战斗动作定义
         self.combat_moves = ['attack', 'combo', 'dash attack', 'jump attack', 'super move 1', 'super move 2', 'super move 3', 'finisher']
+        self.theme_mode = 'dark'
         
     def draw(self, screen, m_pos, active_status, collision_data):
+        # 0. 根据 theme_mode 选择内部控制色，实现白昼/黑夜完美主题对比度适配
+        if self.theme_mode == 'dark':
+            row_bg = (20, 20, 24)
+            btn_bg = (35, 35, 42)
+            btn_hover = (56, 56, 68)
+            tab_bar_bg = (20, 20, 24)
+            tab_hover = (32, 32, 40)
+        else:
+            row_bg = (245, 245, 250)
+            btn_bg = (220, 220, 228)
+            btn_hover = (200, 200, 212)
+            tab_bar_bg = (240, 240, 245)
+            tab_hover = (225, 225, 235)
+
         # 1. 绘制右侧主面板背景与左边界线
         pygame.draw.rect(screen, self.PANEL_COLOR, (1040, 70, 240, 650))
         pygame.draw.line(screen, self.PANEL_BORDER, (1040, 70), (1040, 720), 1)
         
         # 2. 绘制顶部 Tab 切换条
-        pygame.draw.rect(screen, (20, 20, 24), (1040, 70, 240, 40))
+        pygame.draw.rect(screen, tab_bar_bg, (1040, 70, 240, 40))
         pygame.draw.line(screen, self.PANEL_BORDER, (1040, 110), (1280, 110), 1)
         
         # 微动画插值计算底条位置
@@ -54,7 +69,7 @@ class EditorInspector:
             
             # Hover 微微高亮
             if is_hover and not is_active:
-                pygame.draw.rect(screen, (32, 32, 40), rect)
+                pygame.draw.rect(screen, tab_hover, rect)
                 
             txt_color = self.TEXT_COLOR if is_active else (self.TEXT_COLOR if is_hover else self.TEXT_MUTED)
             txt = self.font_small.render(labels[m_id], True, txt_color)
@@ -67,13 +82,13 @@ class EditorInspector:
                 
         # 3. 渲染各个面板的具体内容
         if self.right_tab == 'move':
-            self._draw_move_tab(screen, m_pos, active_status, collision_data)
+            self._draw_move_tab(screen, m_pos, active_status, collision_data, row_bg, btn_bg, btn_hover)
         elif self.right_tab == 'base':
-            self._draw_base_tab(screen, m_pos, collision_data)
+            self._draw_base_tab(screen, m_pos, collision_data, row_bg, btn_bg, btn_hover)
         elif self.right_tab == 'help':
-            self._draw_help_tab(screen)
+            self._draw_help_tab(screen, row_bg)
             
-    def _draw_move_tab(self, screen, m_pos, active_status, collision_data):
+    def _draw_move_tab(self, screen, m_pos, active_status, collision_data, row_bg, btn_bg, btn_hover):
         y = 125
         
         # 显示当前招式名称
@@ -83,7 +98,7 @@ class EditorInspector:
         
         if active_status not in self.combat_moves:
             # 普通非战斗动作 (例如 idle, walk, run 等) 友情提示
-            pygame.draw.rect(screen, (26, 26, 32), (1055, y, 210, 150), 0, 6)
+            pygame.draw.rect(screen, row_bg, (1055, y, 210, 150), 0, 6)
             pygame.draw.rect(screen, self.PANEL_BORDER, (1055, y, 210, 150), 1, 6)
             
             msg_lines = [
@@ -118,7 +133,7 @@ class EditorInspector:
         for key, label, val, step, val_type in rows:
             # 绘制背景条
             row_rect = pygame.Rect(1055, y, 210, 52)
-            pygame.draw.rect(screen, (20, 20, 24), row_rect, 0, 6)
+            pygame.draw.rect(screen, row_bg, row_rect, 0, 6)
             pygame.draw.rect(screen, self.PANEL_BORDER, row_rect, 1, 6)
             
             # 绘制标签名称
@@ -133,8 +148,8 @@ class EditorInspector:
             sub_hover = btn_sub.collidepoint(m_pos)
             add_hover = btn_add.collidepoint(m_pos)
             
-            pygame.draw.rect(screen, (56, 56, 68) if sub_hover else (35, 35, 42), btn_sub, 0, 4)
-            pygame.draw.rect(screen, (56, 56, 68) if add_hover else (35, 35, 42), btn_add, 0, 4)
+            pygame.draw.rect(screen, btn_hover if sub_hover else btn_bg, btn_sub, 0, 4)
+            pygame.draw.rect(screen, btn_hover if add_hover else btn_bg, btn_add, 0, 4)
             
             # 绘制 "-" 和 "+" 符号文本
             txt_sub = self.font_medium.render("-", True, self.TEXT_COLOR)
@@ -150,7 +165,7 @@ class EditorInspector:
             
             y += 58
             
-    def _draw_base_tab(self, screen, m_pos, collision_data):
+    def _draw_base_tab(self, screen, m_pos, collision_data, row_bg, btn_bg, btn_hover):
         y = 125
         
         # 显示基础属性标题
@@ -173,7 +188,7 @@ class EditorInspector:
         for key, label, val, step in rows:
             # 绘制背景条
             row_rect = pygame.Rect(1055, y, 210, 52)
-            pygame.draw.rect(screen, (20, 20, 24), row_rect, 0, 6)
+            pygame.draw.rect(screen, row_bg, row_rect, 0, 6)
             pygame.draw.rect(screen, self.PANEL_BORDER, row_rect, 1, 6)
             
             # 绘制标签名称
@@ -188,8 +203,8 @@ class EditorInspector:
             sub_hover = btn_sub.collidepoint(m_pos)
             add_hover = btn_add.collidepoint(m_pos)
             
-            pygame.draw.rect(screen, (56, 56, 68) if sub_hover else (35, 35, 42), btn_sub, 0, 4)
-            pygame.draw.rect(screen, (56, 56, 68) if add_hover else (35, 35, 42), btn_add, 0, 4)
+            pygame.draw.rect(screen, btn_hover if sub_hover else btn_bg, btn_sub, 0, 4)
+            pygame.draw.rect(screen, btn_hover if add_hover else btn_bg, btn_add, 0, 4)
             
             # 绘制 "-" 和 "+" 符号文本
             txt_sub = self.font_medium.render("-", True, self.TEXT_COLOR)
@@ -204,7 +219,7 @@ class EditorInspector:
             
             y += 58
             
-    def _draw_help_tab(self, screen):
+    def _draw_help_tab(self, screen, row_bg):
         y_hint = 130
         hints = [
             ("A / D", "左右切换当前动作帧"),
@@ -214,8 +229,8 @@ class EditorInspector:
             ("Delete / C", "清空当前帧指定碰撞盒"),
             ("F", "镜像翻转角色朝向"),
             ("R", "复制当前框类型至所有帧"),
-            ("Auto Save", "所有修改实时自动保存"),
-            ("ESC", "保存并安全退出")
+            ("B", "切换主题 (深色/浅色)"),
+            ("ESC", "取消绘制 / 退出确认")
         ]
         
         for key, desc in hints:
@@ -227,7 +242,7 @@ class EditorInspector:
                 tag_col = self.ACCENT_COLOR  # 霓虹紫：操作
                 
             item_r = pygame.Rect(1055, y_hint - 2, 210, 40)
-            pygame.draw.rect(screen, (20, 20, 24), item_r, 0, 5)
+            pygame.draw.rect(screen, row_bg, item_r, 0, 5)
             pygame.draw.rect(screen, (35, 35, 42), item_r, 1, 5)
             
             # 左侧精细分类霓虹标签线

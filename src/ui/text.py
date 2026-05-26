@@ -1,6 +1,6 @@
 import pygame
 from src.core.support import resource_path
-from src.settings import SCREEN_WIDTH
+from src.core.constants import SCREEN_WIDTH
 
 
 class OptionText:

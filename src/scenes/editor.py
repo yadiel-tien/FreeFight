@@ -5,7 +5,7 @@ import pygame
 from src.scenes.scene import Scene, SceneStatus
 from src.core.support import resource_path, import_gifs_dict
 
-class HitboxEditorScene(Scene):
+class Editor(Scene):
     def __init__(self, game_input, surface):
         super().__init__(game_input, surface)
         self.sprite_base_path = resource_path("assets/graphics/sprites")
@@ -46,14 +46,38 @@ class HitboxEditorScene(Scene):
         # 招式动作判定配置，用于自动初始化默认 Hitbox
         self.attack_moves = ['attack', 'combo', 'dash attack', 'jump attack', 'super move 1', 'super move 2', 'super move 3', 'finisher']
         
-        # AAA级 赛博暗黑 CAD 极客风配色
-        self.BG_COLOR = (15, 15, 18)          # 深黑背景
-        self.PANEL_COLOR = (26, 26, 32)       # 面板暗灰
-        self.PANEL_BORDER = (46, 46, 56)      # 面板边框
-        self.GRID_COLOR = (26, 26, 32)        # 背景网格线
-        self.GRID_HIGHLIGHT = (38, 38, 46)    # 网格中心十字线
-        self.TEXT_COLOR = (245, 245, 250)     # 清晰白字
-        self.TEXT_MUTED = (140, 140, 152)     # 灰字
+        # 物理双色主题支持：Cyber深黑网格 vs 舒适白昼灰网格 (真·全局主题大换肤)
+        self.theme_mode = 'dark'
+        self.THEMES = {
+            'dark': {
+                'bg': (15, 15, 18),
+                'grid': (26, 26, 32),
+                'highlight': (38, 38, 46),
+                'panel': (26, 26, 32),
+                'panel_border': (46, 46, 56),
+                'text': (245, 245, 250),
+                'text_muted': (140, 140, 152)
+            },
+            'light': {
+                'bg': (240, 240, 245),
+                'grid': (220, 220, 228),
+                'highlight': (185, 185, 200),
+                'panel': (255, 255, 255),
+                'panel_border': (215, 215, 225),
+                'text': (30, 30, 35),
+                'text_muted': (110, 110, 125)
+            }
+        }
+        
+        # AAA级 全局自适应色彩系统
+        theme = self.THEMES['dark']
+        self.BG_COLOR = theme['bg']
+        self.PANEL_COLOR = theme['panel']
+        self.PANEL_BORDER = theme['panel_border']
+        self.GRID_COLOR = theme['grid']
+        self.GRID_HIGHLIGHT = theme['highlight']
+        self.TEXT_COLOR = theme['text']
+        self.TEXT_MUTED = theme['text_muted']
         self.HURTBOX_COLOR = (46, 213, 115)   # 🟢 霓虹薄荷绿
         self.HITBOX_COLOR = (255, 71, 87)     # 🔴 霓虹珊瑚红
         self.PUSHBOX_COLOR = (30, 144, 255)   # 🔵 霓虹极光蓝
@@ -358,7 +382,11 @@ class HitboxEditorScene(Scene):
             is_ctrl = (mods & pygame.KMOD_CTRL) or (mods & pygame.KMOD_META)
             
             if event.key == pygame.K_ESCAPE:
-                self.show_exit_dialog = True
+                if self.drag_start:
+                    self.drag_start = None
+                    self.drag_current = None
+                else:
+                    self.show_exit_dialog = True
             # A / D 或 左右键切换帧 (Left / Right)
             elif event.key == pygame.K_a and not is_ctrl:
                 if self.frames:
@@ -411,6 +439,24 @@ class HitboxEditorScene(Scene):
             # R 键同步复制当前选中的碰撞盒类型到所有帧 (直接复制并提示)
             elif event.key == pygame.K_r:
                 self.copy_current_box_to_all_frames()
+            # B 键切换编辑网格背景主题 (深色 / 浅色 - 全局大换肤)
+            elif event.key == pygame.K_b:
+                self.theme_mode = 'light' if self.theme_mode == 'dark' else 'dark'
+                theme = self.THEMES[self.theme_mode]
+                self.BG_COLOR = theme['bg']
+                self.GRID_COLOR = theme['grid']
+                self.GRID_HIGHLIGHT = theme['highlight']
+                self.PANEL_COLOR = theme['panel']
+                self.PANEL_BORDER = theme['panel_border']
+                self.TEXT_COLOR = theme['text']
+                self.TEXT_MUTED = theme['text_muted']
+                
+                # 同步更新至子模块 Inspector 面板
+                self.inspector.theme_mode = self.theme_mode
+                self.inspector.TEXT_COLOR = self.TEXT_COLOR
+                self.inspector.TEXT_MUTED = self.TEXT_MUTED
+                self.inspector.PANEL_COLOR = self.PANEL_COLOR
+                self.inspector.PANEL_BORDER = self.PANEL_BORDER
 
         # 3. 鼠标左键框选绘制与数值面板交互
         elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -496,10 +542,8 @@ class HitboxEditorScene(Scene):
         img_x = 1280 // 2 - w // 2
         img_y = 720 // 2 - h // 2
         
-        # 绘制地平基准线 (霓虹蓝激光线带端点发光，极具科幻感)
-        pygame.draw.line(self.screen, (30, 144, 255, 120), (320, img_y + h), (1280 - 320, img_y + h), 2)
-        pygame.draw.circle(self.screen, (30, 144, 255), (320, img_y + h), 4)
-        pygame.draw.circle(self.screen, (30, 144, 255), (1280 - 320, img_y + h), 4)
+        # 绘制地平基准线 (霓虹蓝激光线，贯穿整个屏幕 0 到 1280)
+        pygame.draw.line(self.screen, (30, 144, 255, 120), (0, img_y + h), (1280, img_y + h), 2)
         
         # 翻转绘制
         display_surf = char_surf
@@ -507,9 +551,6 @@ class HitboxEditorScene(Scene):
             display_surf = pygame.transform.flip(char_surf, True, False)
             
         self.screen.blit(display_surf, (img_x, img_y))
-        
-        # 绘制图片物理定位框 (带微弱虚线感)
-        pygame.draw.rect(self.screen, self.RECT_BORDER_COLOR, (img_x, img_y, w, h), 1)
         
         # 绘制碰撞框
         boxes = self.get_current_boxes()
@@ -571,7 +612,7 @@ class HitboxEditorScene(Scene):
         pygame.draw.rect(self.screen, self.PANEL_COLOR, (0, 0, 1280, 70))
         pygame.draw.line(self.screen, self.PANEL_BORDER, (0, 70), (1280, 70), 1)
         
-        title = self.font_large.render("FreeFight 可视化碰撞盒编辑器", True, self.TEXT_COLOR)
+        title = self.font_large.render("FreeFight 可视化编辑器", True, self.TEXT_COLOR)
         self.screen.blit(title, (25, 18))
         
         # 绘制 1/2/3 绘制状态栏 (已彻底移除 emoji 字符，防止 Mac 上显示为方框)
@@ -584,7 +625,10 @@ class HitboxEditorScene(Scene):
         x_btn = 600
         for m_id, m_lbl, m_col in modes:
             is_active = (self.active_box_type == m_id)
-            btn_bg = (40, 40, 52) if is_active else (20, 20, 24)
+            if self.theme_mode == 'dark':
+                btn_bg = (40, 40, 52) if is_active else (20, 20, 24)
+            else:
+                btn_bg = (230, 230, 240) if is_active else (245, 245, 250)
             btn_rect = pygame.Rect(x_btn, 16, 205, 38)
             pygame.draw.rect(self.screen, btn_bg, btn_rect, 0, 8)
             if is_active:
@@ -615,7 +659,8 @@ class HitboxEditorScene(Scene):
         self.screen.blit(lbl, (20, y))
         
         # 下拉框背景与选定角色显示
-        pygame.draw.rect(self.screen, (20, 20, 24), self.dropdown_rect, 0, 6)
+        dropdown_bg = (20, 20, 24) if self.theme_mode == 'dark' else (245, 245, 250)
+        pygame.draw.rect(self.screen, dropdown_bg, self.dropdown_rect, 0, 6)
         pygame.draw.rect(self.screen, self.PANEL_BORDER, self.dropdown_rect, 1, 6)
         
         char_txt = self.font_medium.render(self.char_name.capitalize(), True, self.TEXT_COLOR)
@@ -658,7 +703,8 @@ class HitboxEditorScene(Scene):
             # 高亮选中动作背景与左侧指示灯
             if is_cur:
                 item_bg = pygame.Rect(10, y - 2, 220, 22)
-                pygame.draw.rect(self.screen, (40, 40, 52), item_bg, 0, 4)
+                item_hl = (40, 40, 52) if self.theme_mode == 'dark' else (230, 230, 240)
+                pygame.draw.rect(self.screen, item_hl, item_bg, 0, 4)
                 
                 # 绘制极客感十足的蓝色垂直指示线条
                 pygame.draw.rect(self.screen, self.ACCENT_COLOR, (15, y + 4, 4, 11), 0, 2)
@@ -682,7 +728,8 @@ class HitboxEditorScene(Scene):
         if self.dropdown_expanded:
             drop_items_h = len(self.characters) * 30
             drop_panel = pygame.Rect(self.dropdown_rect.x, self.dropdown_rect.bottom, self.dropdown_rect.w, drop_items_h)
-            pygame.draw.rect(self.screen, (20, 20, 24), drop_panel, 0, 6)
+            drop_panel_bg = (20, 20, 24) if self.theme_mode == 'dark' else (245, 245, 250)
+            pygame.draw.rect(self.screen, drop_panel_bg, drop_panel, 0, 6)
             pygame.draw.rect(self.screen, self.PANEL_BORDER, drop_panel, 1, 6)
             
             # 获取鼠标位置以高亮 Hover 选项
@@ -728,7 +775,7 @@ class HitboxEditorScene(Scene):
             
             # "确定" 按钮 (Y / Enter)
             btn1_hover = self.exit_btn_confirm_rect.collidepoint(m_pos)
-            btn1_bg = self.ACCENT_COLOR if btn1_hover else (40, 40, 52)
+            btn1_bg = self.ACCENT_COLOR if btn1_hover else ((40, 40, 52) if self.theme_mode == 'dark' else (230, 230, 240))
             pygame.draw.rect(self.screen, btn1_bg, self.exit_btn_confirm_rect, 0, 6)
             btn1_txt = self.font_small.render("确定 (Y / Enter)", True, self.TEXT_COLOR)
             btn1_txt_r = btn1_txt.get_rect(center=self.exit_btn_confirm_rect.center)
@@ -736,7 +783,7 @@ class HitboxEditorScene(Scene):
             
             # "取消" 按钮 (N / ESC)
             btn2_hover = self.exit_btn_cancel_rect.collidepoint(m_pos)
-            btn2_bg = (56, 56, 68) if btn2_hover else (30, 30, 38)
+            btn2_bg = ((56, 56, 68) if btn2_hover else (30, 30, 38)) if self.theme_mode == 'dark' else ((200, 200, 215) if btn2_hover else (220, 220, 228))
             pygame.draw.rect(self.screen, btn2_bg, self.exit_btn_cancel_rect, 0, 6)
             pygame.draw.rect(self.screen, self.PANEL_BORDER, self.exit_btn_cancel_rect, 1, 6)
             btn2_txt = self.font_small.render("取消 (N / ESC)", True, self.TEXT_COLOR)
@@ -751,7 +798,7 @@ class HitboxEditorScene(Scene):
             toast_rect = pygame.Rect(1280 // 2 - toast_w // 2, 85, toast_w, toast_h)
             
             # 磨砂背景与霓虹紫色发光框
-            pygame.draw.rect(self.screen, (26, 26, 32), toast_rect, 0, 10)
+            pygame.draw.rect(self.screen, self.PANEL_COLOR, toast_rect, 0, 10)
             pygame.draw.rect(self.screen, self.ACCENT_COLOR, toast_rect, 2, 10)
             
             # 提示文本与类型名称

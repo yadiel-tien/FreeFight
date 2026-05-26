@@ -2,7 +2,7 @@ from random import randint, random
 
 import pygame
 
-from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
+from src.core.constants import SCREEN_WIDTH, SCREEN_HEIGHT
 from src.core.support import resource_path
 
 
@@ -12,7 +12,7 @@ class PlayerInfoCard:
         self.screen = surface
         self.avatar = pygame.transform.scale(image, (64, 64)) # 放大头像，更具冲击力
         
-        from src.settings import SCREEN_WIDTH
+        from src.core.constants import SCREEN_WIDTH
         if player_index == 'p1':
             # P1 (左侧)：头像在最左边，血条向右伸展
             self.avatar_pos = (20, 20)

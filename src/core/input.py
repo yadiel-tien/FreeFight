@@ -116,7 +116,7 @@ class Controller:
             if not found: return False
         return True
 
-class KeyBoard(Controller):
+class Keyboard(Controller):
     def __init__(self):
         super().__init__()
         self.name_to_key = {
@@ -269,7 +269,7 @@ class GameInput:
             -1: {
                 'player_index': 'p0', 
                 'player_name': 'unselected', 
-                'controller': KeyBoard(), 
+                'controller': Keyboard(), 
                 'timer': Timer(200), 
                 'confirmed': False
             }

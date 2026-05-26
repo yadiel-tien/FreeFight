@@ -1,6 +1,6 @@
 import pygame
 from src.core.support import resource_path
-from src.settings import *
+from src.core.constants import *
 
 class UIWidget:
     def __init__(self, label_dict, pos, size=(400, 40)):

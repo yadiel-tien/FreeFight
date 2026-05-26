@@ -3,10 +3,13 @@ import pygame
 
 from src.ui.components.dialogue import Dialogue
 from src.core.input import GameInput
-from src.scenes.level import Level
-from src.scenes.scene import SceneStatus, Home, RolePicker, Settings
-from src.scenes.editor import HitboxEditorScene
-from src.settings import *
+from src.scenes.battle import Battle
+from src.scenes.scene import SceneStatus
+from src.scenes.home import Home
+from src.scenes.settings import Settings
+from src.scenes.role_picker import RolePicker
+from src.scenes.editor import Editor
+from src.core.constants import *
 
 
 class Game:
@@ -48,11 +51,11 @@ class Game:
                 elif self.next_scene == SceneStatus.CHOOSE_ROLE:
                     self.scene = RolePicker(self.game_input, self.display_surf)
                 elif self.next_scene == SceneStatus.FIGHTING:
-                    self.scene = Level(self.game_input, self.display_surf)
+                    self.scene = Battle(self.game_input, self.display_surf)
                 elif self.next_scene == SceneStatus.SETTINGS:
                     self.scene = Settings(self.game_input, self.display_surf)
                 elif self.next_scene == SceneStatus.EDITOR:
-                    self.scene = HitboxEditorScene(self.game_input, self.display_surf)
+                    self.scene = Editor(self.game_input, self.display_surf)
                 self.current_scene = self.next_scene
 
             # 2. 事件处理

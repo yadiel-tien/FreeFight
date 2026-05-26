@@ -4,18 +4,18 @@ import math
 from src.ui.components.dialogue import Dialogue
 from src.entities.player import Player
 from src.scenes.scene import Scene, SceneStatus
-from src.entities.sprites import DynamicBackGround
+from src.entities.sprites import DynamicBackground
 from src.core.support import resource_path, import_pic
 
 
-class Level(Scene):
+class Battle(Scene):
     def __init__(self, game_input, surface: pygame.Surface):
         super().__init__(game_input, surface)
         self.dialogue = Dialogue(game_input, self.screen)
         self.display_sprites = pygame.sprite.Group()
         self.effect_sprites = pygame.sprite.Group()
         self.create_player()
-        DynamicBackGround(self.display_sprites)
+        DynamicBackground(self.display_sprites)
         
         # 摄像机与震动
         self.camera_offset = pygame.math.Vector2()
@@ -39,7 +39,7 @@ class Level(Scene):
         players = [sprite for sprite in self.display_sprites if isinstance(sprite, Player)]
         if players:
             avg_x = sum(p.pos.x for p in players) / len(players)
-            from src.settings import SCREEN_WIDTH
+            from src.core.constants import SCREEN_WIDTH
             target_offset_x = avg_x - SCREEN_WIDTH / 2
             
             # 摄像机平滑追踪 (提速至 0.2x，紧跟角色剧烈搏击)
@@ -125,7 +125,7 @@ class Level(Scene):
                 players[i].resolve_player_collision(players[j])
 
     def draw_settlement(self):
-        from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
+        from src.core.constants import SCREEN_WIDTH, SCREEN_HEIGHT
         
         # 1. Midnight Violet 遮罩 (Midnight Violet Glass Mask)
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
@@ -270,8 +270,8 @@ class Level(Scene):
         confirm_btn_symbol = "确定键"
         if self.winner:
             ctrl = self.winner.device_info['controller']
-            from src.core.input import KeyBoard, Joystick
-            if isinstance(ctrl, KeyBoard):
+            from src.core.input import Keyboard, Joystick
+            if isinstance(ctrl, Keyboard):
                 confirm_btn_symbol = "⏎"
             elif isinstance(ctrl, Joystick):
                 from src.core.input_config import UI_MAPPING
@@ -361,7 +361,7 @@ class Level(Scene):
             
             # 限制玩家不能超出当前摄像机视野边界 (保证所有人物都在画面中，彻底零帧空气墙拦截)
             if not self.dialogue.showing and not self.show_results:
-                from src.settings import SCREEN_WIDTH
+                from src.core.constants import SCREEN_WIDTH
                 margin = 60  # 加上半身宽度，保证整个身体在画面内
                 left_limit = self.camera_offset.x + margin
                 right_limit = self.camera_offset.x + SCREEN_WIDTH - margin
@@ -456,7 +456,7 @@ class Level(Scene):
             self.screen.blit(sprite.image, offset_pos)
 
         # 4. 最上层：UI (血条与连击数)
-        from src.settings import SCREEN_WIDTH
+        from src.core.constants import SCREEN_WIDTH
         for player in players:
             player.blood_ui.display(player.health, player.shadow_health, player.max_health, player.energy)
             

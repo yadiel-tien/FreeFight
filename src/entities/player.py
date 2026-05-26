@@ -14,7 +14,7 @@ class Player(pygame.sprite.Sprite):
         self.image_index = 0
         self.image = self.images['idle'][0]
         self.display_surf = surface
-        from src.settings import SCREEN_WIDTH
+        from src.core.constants import SCREEN_WIDTH
         if info['player_index'] == 'p1':
             self.pos = pygame.math.Vector2(280, 700)
             self.to_right = True
@@ -280,7 +280,7 @@ class Player(pygame.sprite.Sprite):
             self.image_index = 0
 
             # --- 真实格斗受力物理系统：攻击方自我反震 (Attacker Recoil) 与 墙角反作用力 (Corner Pushback) ---
-            from src.settings import SCREEN_WIDTH
+            from src.core.constants import SCREEN_WIDTH
             push_dir = 1 if self.pos.x > attacker.pos.x else -1
             attacker_push_dir = -push_dir
 
@@ -438,7 +438,7 @@ class Player(pygame.sprite.Sprite):
             self.knockback_velocity.x = 0
 
         # 边界限制 (支持摄像机滚动，扩大舞台物理边界)
-        from src.settings import SCREEN_WIDTH
+        from src.core.constants import SCREEN_WIDTH
         # 允许玩家走出初始屏幕，舞台总宽度设为 屏幕宽 + 1000 像素
         if -500 < new_pos.x < SCREEN_WIDTH + 500:
             self.pos.x = new_pos.x
