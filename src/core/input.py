@@ -30,7 +30,7 @@ class InputAction:
 
 class Controller:
     def __init__(self):
-        self.battle_actions = ['up', 'down', 'left', 'right', 'jump', 'attack', 'super move 1', 'super move 2', 'finisher']
+        self.battle_actions = ['up', 'down', 'left', 'right', 'jump', 'attack', 'super move 1', 'super move 2', 'finisher', 'taunt']
         self.ui_actions = ['up', 'down', 'left', 'right', 'tab_left', 'tab_right', 'confirm', 'cancel', 'menu']
         
         # 统一动作字典
@@ -62,7 +62,7 @@ class Controller:
         if action == 'run right': return self.actions['right'].pressed and self.running_dir == 'right'
         
         # 2. 处理瞬时触发动作
-        if action in ['jump', 'attack', 'super move 1', 'super move 2', 'finisher']:
+        if action in ['jump', 'attack', 'super move 1', 'super move 2', 'finisher', 'taunt']:
             return self.actions[action].just_pressed
             
         # 3. 处理持续按住动作 (方向键/普通走路)
@@ -172,7 +172,8 @@ class Keyboard(Controller):
             prev_pressed = self.actions[action].pressed
             self.actions[action].update(is_down)
             
-            if self.actions[action].just_pressed:
+            # 只有当上一帧未按下且在这一帧被按下时，才加入双击判定缓冲区，防止 event KEYDOWN 和 update_state 重复触发导致“按一下就跑”
+            if self.actions[action].just_pressed and not prev_pressed:
                 if action in ['left', 'right', 'up', 'down']:
                     self._add_to_buffer(action)
             
@@ -254,7 +255,9 @@ class Joystick(Controller):
         for action, is_down in action_states.items():
             prev_pressed = self.actions[action].pressed
             self.actions[action].update(is_down)
-            if self.actions[action].just_pressed:
+            
+            # 只有当上一帧未按下且在这一帧被按下时，才加入双击判定缓冲区，防止 event KEYDOWN 和 update_state 重复触发导致“按一下就跑”
+            if self.actions[action].just_pressed and not prev_pressed:
                 if action in ['left', 'right', 'up', 'down']:
                     self._add_to_buffer(action)
             if not is_down and prev_pressed:

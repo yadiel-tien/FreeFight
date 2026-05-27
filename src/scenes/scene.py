@@ -12,6 +12,7 @@ class SceneStatus(Enum):
     SETTINGS = 5
     EXIT = 6
     EDITOR = 7
+    HOW_TO_PLAY = 8
 
 
 class Scene:

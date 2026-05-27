@@ -69,11 +69,21 @@ def import_gifs_dict(folder_path):
 def import_gif(path):
     img = Image.open(resource_path(path))
     frames = []
+    
+    # 提取 GIF 全局透明索引信息，以防 seek 切换帧后丢失导致透明背景变白底/黑底框
+    global_transparency = img.info.get('transparency')
+    
     for index in range(img.n_frames):
         img.seek(index)  # 设置当前帧
-        # 将当前帧转换为 Pygame 可用格式
+        
+        # 强制还原可能因 seek 丢失的透明调色板索引
+        if global_transparency is not None and 'transparency' not in img.info:
+            img.info['transparency'] = global_transparency
+            
+        # 将当前帧转换为 RGBA 格式 (此时调色板的透明索引会完美映射为 alpha=0)
         frame = img.convert('RGBA')
-        # 将图片转为pygame图片
-        pygame_image = pygame.image.fromstring(frame.tobytes(), frame.size, frame.mode)
+        
+        # 将图片转为pygame图片，并转换为适合当前 display 的像素格式
+        pygame_image = pygame.image.fromstring(frame.tobytes(), frame.size, frame.mode).convert_alpha()
         frames.append(pygame_image)
     return frames

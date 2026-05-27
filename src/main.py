@@ -56,6 +56,9 @@ class Game:
                     self.scene = Settings(self.game_input, self.display_surf)
                 elif self.next_scene == SceneStatus.EDITOR:
                     self.scene = Editor(self.game_input, self.display_surf)
+                elif self.next_scene == SceneStatus.HOW_TO_PLAY:
+                    from src.scenes.practice import Practice
+                    self.scene = Practice(self.game_input, self.display_surf)
                 self.current_scene = self.next_scene
 
             # 2. 事件处理

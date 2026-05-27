@@ -9,6 +9,7 @@ class Player(pygame.sprite.Sprite):
         self.device_info = info
         self.dialogue = dialogue
         # 画面相关
+        self.has_hit_targets = {}
         self.status = 'idle'
         self.images = import_gifs_dict(f'assets/graphics/sprites/{info["player_name"]}')
         self.image_index = 0
@@ -79,8 +80,6 @@ class Player(pygame.sprite.Sprite):
 
         # AAA级视觉表现属性
         self.shadow_health = 1000.0
-        self.ghosts = []
-        self.ghost_timer = 0
 
         # 1. 载入 config.json (新名称)；
         import os
@@ -132,8 +131,9 @@ class Player(pygame.sprite.Sprite):
             # 自动回到 idle 的动画
             if self.status in ['attack', 'super move 1', 'super move 2', 'finisher',
                                'combo', 'dash attack', 'victory', 'show off']:
-                # victory 和 show off 动画通常循环播放或停在最后一帧，这里我们让其循环或停住
-                if self.status in ['victory', 'show off']:
+                # victory 动画，或者作为胜利结算替代的 show off 动画，需要停在最后一帧；若是正常战斗中的挑衅则应返回 idle
+                opponent = next((p for p in self.groups()[0] if isinstance(p, Player) and p != self), None) if self.groups() else None
+                if self.status == 'victory' or (self.status == 'show off' and (not opponent or opponent.health <= 0 or self.health <= 0)):
                     self.image_index = len(frames) - 1
                 else:
                     # 动画正常结束，进入收招僵直 (Recovery Lag Phase)
@@ -147,14 +147,15 @@ class Player(pygame.sprite.Sprite):
             # 受击动画结束判断
             if self.status in ['body hit', 'head hit'] and not self.is_hit:
                 self.status = 'idle'
+                self.movement_locked = False
 
         # 安全索引，防止越界
         idx = int(max(0, min(len(frames) - 1, self.image_index)))
         original = frames[idx]
 
-        # 缩放图片
+        # 缩放图片，并立刻转为 per-pixel alpha 格式（防止后续混色操作产生白色方框）
         w, h = original.get_size()
-        scaled = pygame.transform.scale(original, (int(w * 0.5), int(h * 0.5)))
+        scaled = pygame.transform.scale(original, (int(w * 0.5), int(h * 0.5))).convert_alpha()
 
         # 高性能闪白：使用 BLEND_RGBA_MAX 完美提取剪影
         if self.is_hit and (pygame.time.get_ticks() // 60) % 2 == 0:
@@ -163,21 +164,16 @@ class Player(pygame.sprite.Sprite):
             scaled = white_mask
 
         # 无敌帧透明度闪烁效果 (Arcade Blinking I-Frames)
+        # 使用 SRCALPHA Surface 方式设置整体透明度，避免 set_alpha 在 per-pixel alpha Surface 上产生方框
         if self.invincible_timer > 0 and (pygame.time.get_ticks() // 80) % 2 == 0:
-            scaled.set_alpha(120)
+            alpha_surf = pygame.Surface(scaled.get_size(), pygame.SRCALPHA)
+            alpha_surf.fill((255, 255, 255, 120))
+            scaled.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
 
         # 左右转向
         self.image = pygame.transform.flip(scaled, self.to_right, False)
 
-        # 在高速/大招动作下周期性产生分身残影 (Ghost Trails Generation)
-        if self.status in ['run', 'dash attack', 'super move 1', 'super move 2', 'super move 3', 'finisher']:
-            self.ghost_timer += 1
-            if self.ghost_timer % 3 == 0:
-                self.ghosts.append({
-                    'image': self.image.copy(),
-                    'pos': self.rect.topleft,
-                    'alpha': 160.0
-                })
+        pass
 
     def get_hurtbox(self):
         status = self.status
@@ -274,7 +270,21 @@ class Player(pygame.sprite.Sprite):
                 # 赋予物理抛物线击飞初速度，支持空中追击连招
                 self.jump_velocity = -120 - knockback * 1.5
             else:
-                self.status = 'body hit'
+                # 动态计算受击部位：根据攻击判定盒 (Hitbox) 与受击盒 (Hurtbox) 的重合高度来区分为头/胸/腿三段受击
+                attacker_hitbox = attacker.get_hitbox()
+                target_hurtbox = self.get_hurtbox()
+                if attacker_hitbox and target_hurtbox:
+                    overlap = attacker_hitbox.clip(target_hurtbox)
+                    relative_y = (overlap.centery - target_hurtbox.top) / max(1.0, target_hurtbox.height)
+                    if relative_y < 0.35:
+                        self.status = 'head hit'
+                    elif relative_y >= 0.75:
+                        # 腿部受击 (如果有专属动画用 leg hit，否则优雅降级用 body hit)
+                        self.status = 'leg hit' if 'leg hit' in self.images else 'body hit'
+                    else:
+                        self.status = 'body hit'
+                else:
+                    self.status = 'body hit'
 
             # 强制重置动画帧
             self.image_index = 0
@@ -285,8 +295,10 @@ class Player(pygame.sprite.Sprite):
             attacker_push_dir = -push_dir
 
             # 检测被攻击者是否已被逼入墙角 (舞台左限 -500 + 40, 右限 SCREEN_WIDTH + 500 - 40)
-            is_cornered_left = (self.pos.x <= -460 and push_dir == -1)
-            is_cornered_right = (self.pos.x >= SCREEN_WIDTH + 460 and push_dir == 1)
+            limit_left = -49960 if getattr(self, 'is_practice', False) else -460
+            limit_right = SCREEN_WIDTH + 49960 if getattr(self, 'is_practice', False) else SCREEN_WIDTH + 460
+            is_cornered_left = (self.pos.x <= limit_left and push_dir == -1)
+            is_cornered_right = (self.pos.x >= limit_right and push_dir == 1)
 
             if is_cornered_left or is_cornered_right:
                 # 墙角反震转移：被攻击者由于背后有坚硬墙壁无法后退，反作用力100%转移给攻击者！
@@ -314,16 +326,40 @@ class Player(pygame.sprite.Sprite):
                 else:
                     direction = 1 if self.device_info['player_index'] == 'p1' else -1
 
-                # 平分推力，消解重叠
-                push = overlap_x * 0.5
-                self.pos.x += direction * push
-                other.pos.x -= direction * push
+                # 检测双方的推挤意图 (Align directions with opponent's relative position)
+                to_other_dir = 1 if other.pos.x > self.pos.x else -1
+                self_pushing = (self.direction.x * to_other_dir > 0)
+                other_pushing = (other.direction.x * (-to_other_dir) > 0)
+
+                if self_pushing and other_pushing:
+                    # 双方都在朝对方推挤：相互抵消，保持静止 (平分消解)
+                    push_self = overlap_x * 0.5
+                    push_other = overlap_x * 0.5
+                elif self_pushing:
+                    # 仅 self 朝 other 推挤：self 的推挤速度变慢 (消解 65%，保留 35% 移动量)，并把 other 推开
+                    push_self = overlap_x * 0.65
+                    push_other = overlap_x * 0.35
+                elif other_pushing:
+                    # 仅 other 朝 self 推挤：other 的推挤速度变慢，并把 self 推开
+                    push_self = overlap_x * 0.35
+                    push_other = overlap_x * 0.65
+                else:
+                    # 双方都没有推挤意图 (例如一方在后退、受击或站立不动)：平分消解以防止穿模
+                    push_self = overlap_x * 0.5
+                    push_other = overlap_x * 0.5
+
+                self.pos.x += direction * push_self
+                other.pos.x -= direction * push_other
 
                 # 同步更新图像的物理外框位置，防止判定帧滞后抖动
                 self.rect.midbottom = self.pos
                 other.rect.midbottom = other.pos
 
     def update(self, dt):
+        opponent = next((p for p in self.groups()[0] if isinstance(p, Player) and p != self), None) if self.groups() else None
+        if opponent:
+            self.to_right = (opponent.pos.x > self.pos.x)
+
         if dt > 0:
             # 持续能量自然恢复 (+3/秒，最大值 100)
             if self.health > 0:
@@ -342,10 +378,12 @@ class Player(pygame.sprite.Sprite):
                 if self.combo_timer <= 0:
                     self.combo_count = 0
 
-            # 递减残影透明度并清理过期残影 (Ghost Trails decay)
-            for ghost in self.ghosts:
-                ghost['alpha'] -= dt * 450.0
-            self.ghosts = [g for g in self.ghosts if g['alpha'] > 0]
+            # Update hit target cooldowns to prevent rapid tick damage but allow natural intervals
+            if hasattr(self, 'has_hit_targets') and isinstance(self.has_hit_targets, dict):
+                for target in list(self.has_hit_targets.keys()):
+                    self.has_hit_targets[target] -= dt
+                    if self.has_hit_targets[target] <= 0:
+                        del self.has_hit_targets[target]
 
             # 缓动红色血量阴影槽 (Smooth Damage Shadow Bar decay)
             if self.shadow_health > self.health:
@@ -377,11 +415,13 @@ class Player(pygame.sprite.Sprite):
                     self.is_hit = False
                     if self.status in ['body hit', 'head hit']:
                         self.status = 'idle'
+                        self.movement_locked = False
                         self.invincible_timer = 0.20  # 普攻受击硬直结束后给予 0.2 秒无敌帧，以防多段死锁
                     elif self.status == 'knock down':
                         # 如果在地面上，直接起立；如果还在空中，保持倒地姿态继续下落，等落地再起立
                         if self.pos.y >= self.ground_y:
                             self.status = 'idle'
+                            self.movement_locked = False
                             self.invincible_timer = 0.40  # 起地起立给予 0.4 秒无敌帧，防起身死锁压制
                 self.mov(dt)  # 受击状态依然运行物理（受击退、重力下落）
             else:
@@ -406,13 +446,13 @@ class Player(pygame.sprite.Sprite):
             self.direction.update(0, 0)
 
         # 不能移动的动画 (包含胜利和炫耀展示，防止出招/胜利后平移飘走，新增 combo 以免横向滑行)
-        if self.status in ['idle', 'super move 1', 'super move 2', 'super move 3', 'finisher', 'attack', 'combo',
+        if self.status in ['idle', 'super move 1', 'super move 2', 'finisher', 'attack', 'combo',
                            'body hit', 'head hit', 'knock down', 'victory', 'show off']:
             self.direction.update(0, 0)
 
         # 计算跳起后垂直运动。落地后还原
         is_airborne = self.pos.y < self.ground_y
-        if is_airborne or self.status in ['jump', 'jump attack', 'super move 3', 'knock down']:
+        if is_airborne or self.status in ['jump', 'jump attack', 'knock down']:
             if self.pos.y < self.ground_y or self.jump_velocity < 0:
                 self.jump_velocity += self.gravity * dt
                 self.pos.y += self.jump_velocity * dt
@@ -425,9 +465,13 @@ class Player(pygame.sprite.Sprite):
                     # 如果受击硬直已经结束，立刻起立；否则保持躺地，等 update 里硬直结束再起立
                     if not self.is_hit:
                         self.status = 'idle'
+                        self.movement_locked = False
                         self.invincible_timer = 0.40  # 起立起身无敌帧 0.4 秒，防止无限起身压制
-                elif self.status in ['jump', 'jump attack', 'super move 3', 'body hit', 'head hit']:
+                elif self.status in ['jump', 'jump attack']:
                     self.status = 'idle'
+                elif self.status in ['body hit', 'head hit']:
+                    self.status = 'idle'
+                    self.movement_locked = False
 
         # 计算位置 (包括普通行走/跑动速度和物理击退滑行速度)
         new_pos = self.pos + (self.direction * self.speed + self.knockback_velocity) * dt
@@ -439,8 +483,10 @@ class Player(pygame.sprite.Sprite):
 
         # 边界限制 (支持摄像机滚动，扩大舞台物理边界)
         from src.core.constants import SCREEN_WIDTH
-        # 允许玩家走出初始屏幕，舞台总宽度设为 屏幕宽 + 1000 像素
-        if -500 < new_pos.x < SCREEN_WIDTH + 500:
+        # 允许玩家走出初始屏幕，舞台总宽度设为 屏幕宽 + 1000 像素 (练习模式下扩展至无限大)
+        limit_left = -50000 if getattr(self, 'is_practice', False) else -500
+        limit_right = SCREEN_WIDTH + 50000 if getattr(self, 'is_practice', False) else SCREEN_WIDTH + 500
+        if limit_left < new_pos.x < limit_right:
             self.pos.x = new_pos.x
 
         self.rect = self.image.get_rect(midbottom=self.pos)
@@ -459,7 +505,7 @@ class Player(pygame.sprite.Sprite):
 
         # 连击链检测 (Attack -> Combo)
         if self.status == 'attack':
-            if ctrl.performed('attack') and self.image_index >= 2.0:
+            if ctrl.performed('attack') and self.image_index >= 1.2:
                 if 'combo' in self.images:
                     self.status = 'combo'
                     self.image_index = 0
@@ -473,15 +519,22 @@ class Player(pygame.sprite.Sprite):
                 for key in ['left', 'right']:
                     if ctrl.performed(key):
                         self.status = 'walk'
-                if ctrl.performed('run left') or ctrl.performed('run right'):
-                    self.status = 'run'
+                if opponent:
+                    is_opponent_on_right = opponent.pos.x > self.pos.x
+                    if is_opponent_on_right and ctrl.performed('run right'):
+                        self.status = 'run'
+                    elif not is_opponent_on_right and ctrl.performed('run left'):
+                        self.status = 'run'
+                else:
+                    if ctrl.performed('run left') or ctrl.performed('run right'):
+                        self.status = 'run'
         elif self.status != 'walk':
             ctrl.last_released_key = ''  # 避免在其他动画中提前触发跑步事件
 
         # 在 idle, walk, run 下，且没有移动锁时允许触发大招、跳跃等
         if self.status in ['idle', 'walk', 'run'] and not self.movement_locked:
-            # --- 1. 上键跳跃 (用 just_pressed 做一次性触发，避免按住连跳) ---
-            if ctrl.actions['up'].just_pressed:
+            # --- 1. 上键/跳跃键跳跃 (用 just_pressed 做一次性触发，避免按住连跳) ---
+            if ctrl.actions['up'].just_pressed or ctrl.actions['jump'].just_pressed:
                 prev_status = self.status
                 self.status = 'jump'
                 self.image_index = 0
@@ -497,6 +550,7 @@ class Player(pygame.sprite.Sprite):
                         self.air_inertia_x = 1.5
                         self.jump_velocity *= 1.15
                         self.movement_locked = True
+                        ctrl.running_dir = None
                     else:
                         self.air_inertia_x = 1.0
                 elif ctrl.performed('left'):
@@ -505,14 +559,16 @@ class Player(pygame.sprite.Sprite):
                         self.air_inertia_x = -1.5
                         self.jump_velocity *= 1.15
                         self.movement_locked = True
+                        ctrl.running_dir = None
                     else:
                         self.air_inertia_x = -1.0
                 else:
-                    # 如果没有按下任何水平方向键，则根据起跳前的状态和面向来决定横向惯性
+                    # 如果没有按下任何水平方向键，则根据起跳前的状态 and 面向来决定横向惯性
                     if prev_status == 'run':
                         self.air_inertia_x = 1.5 if self.to_right else -1.5
                         self.jump_velocity *= 1.15
                         self.movement_locked = True
+                        ctrl.running_dir = None
                     elif prev_status == 'walk':
                         self.air_inertia_x = 1.0 if self.to_right else -1.0
                     else:
@@ -548,14 +604,27 @@ class Player(pygame.sprite.Sprite):
                     # 如果是从奔跑中出招，施加移动锁
                     if prev_status == 'run':
                         self.movement_locked = True
+                        ctrl.running_dir = None
 
-            # 如果非奔跑状态，也允许触发普通 attack
-            if self.status != 'run':
-                if ctrl.performed('attack'):
-                    self.status = 'attack'
+            # --- 3. 触发挑衅 (Taunt / Show Off) ---
+            if ctrl.performed('taunt'):
+                if 'show off' in self.images:
+                    prev_status = self.status
+                    self.status = 'show off'
                     self.image_index = 0
                     if opponent:
                         self.to_right = (opponent.pos.x > self.pos.x)
+                    if prev_status == 'run':
+                        self.movement_locked = True
+                        ctrl.running_dir = None
+
+        # 普通 attack 不受 movement_locked 限制：按着方向键时仍可出拳
+        if self.status in ['idle', 'walk']:
+            if ctrl.performed('attack'):
+                self.status = 'attack'
+                self.image_index = 0
+                if opponent:
+                    self.to_right = (opponent.pos.x > self.pos.x)
 
         if self.status == 'walk':
             # 地面水平行走状态
@@ -585,6 +654,7 @@ class Player(pygame.sprite.Sprite):
                     self.image_index = 0
                     self.direction.x *= 2.0  # 冲刺攻击位移倍率 2.0
                     self.movement_locked = True
+                    ctrl.running_dir = None
                     if opponent:
                         self.to_right = (opponent.pos.x > self.pos.x)
                 else:
@@ -593,6 +663,7 @@ class Player(pygame.sprite.Sprite):
                     self.image_index = 0
                     self.direction.x *= 1.5
                     self.movement_locked = True
+                    ctrl.running_dir = None
                     if opponent:
                         self.to_right = (opponent.pos.x > self.pos.x)
             elif ctrl.performed('run left'):
@@ -606,25 +677,46 @@ class Player(pygame.sprite.Sprite):
 
         if self.status == 'jump':
             if ctrl.performed('attack'):
-                if 'jump attack' in self.images:  # 部分人物确动画
+                if 'jump attack' in self.images:
                     self.status = 'jump attack'
                     if opponent:
                         self.to_right = (opponent.pos.x > self.pos.x)
-            elif ctrl.performed('super move 1'):
-                # 空中大招能量验证 (Air Super Energy Validation)
-                air_cost = self.attack_data['super move 3'].get('cost', 30)
-                if self.energy >= air_cost:
-                    self.energy -= air_cost
-                    self.status = 'super move 3'
-                    self.image_index = 0
-                    # 空中大招也有前摇
-                    startup_time = self.attack_data['super move 3'].get('startup', 0)
-                    if startup_time > 0:
-                        self.startup_timer = startup_time
-                        self.is_startup = True
-                    if opponent:
-                        self.to_right = (opponent.pos.x > self.pos.x)
+            else:
+                # 空中大招：super move 1 / super move 2 / finisher 与地面逻辑完全一致
+                for key in ['super move 1', 'super move 2', 'finisher']:
+                    if ctrl.performed(key):
+                        move_data = self.attack_data.get(key, {})
+                        cost = move_data.get('cost', 0)
+                        if self.energy < cost:
+                            continue
+                        self.energy -= cost
+                        self.status = key
+                        self.image_index = 0
+                        startup_time = move_data.get('startup', 0)
+                        if startup_time > 0:
+                            self.startup_timer = startup_time
+                            self.is_startup = True
+                        if opponent:
+                            self.to_right = (opponent.pos.x > self.pos.x)
+                        break
 
         if self.status in ['jump', 'jump attack']:
             # 跳起水平速度增益 (从 1.5 提升至 2.2，让空中方向盘摇杆移动显著变快)
             self.direction.x *= 2.2
+
+        # 强制两人始终面对面 (Force both players to face each other)
+        if opponent:
+            self.to_right = (opponent.pos.x > self.pos.x)
+
+    @property
+    def status(self):
+        return self._status
+
+    @status.setter
+    def status(self, value):
+        if hasattr(self, '_status') and self._status != value:
+            # If transitioning to a new attack state, clear the hit lockout
+            if hasattr(self, 'attack_data') and value in self.attack_data:
+                if hasattr(self, 'has_hit_targets') and isinstance(self.has_hit_targets, dict):
+                    self.has_hit_targets.clear()
+        self._status = value

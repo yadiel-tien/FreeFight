@@ -108,7 +108,7 @@ class PlayerInfoCard:
 class HitSpark(pygame.sprite.Sprite):
     def __init__(self, pos, groups):
         super().__init__(groups)
-        self.image = pygame.Surface((40, 40), pygame.SRCALPHA)
+        self.image = pygame.Surface((40, 40), pygame.SRCALPHA).convert_alpha()
         # 绘制一个简单的闪光十字
         pygame.draw.line(self.image, (255, 255, 255), (0, 20), (40, 20), 4)
         pygame.draw.line(self.image, (255, 255, 255), (20, 0), (20, 40), 4)
@@ -199,7 +199,7 @@ class ShockWave(pygame.sprite.Sprite):
         # 扩大判定盒尺寸以容纳膨胀光圈
         self.max_w = int(self.rect.width * 1.6)
         self.max_h = int(self.rect.height * 1.6)
-        self.image = pygame.Surface((self.max_w, self.max_h), pygame.SRCALPHA)
+        self.image = pygame.Surface((self.max_w, self.max_h), pygame.SRCALPHA).convert_alpha()
         
         self.rect = self.image.get_rect(center=self.rect.center)
         self.start_time = pygame.time.get_ticks()

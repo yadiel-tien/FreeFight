@@ -67,7 +67,18 @@ class Home(Scene):
                 lang = config.get('system', 'language')
                 msg = '确定要退出吗？' if lang == 'zh_CN' else 'Are you sure you want to quit?'
                 self.dialogue.show(msg, self.game_input.controllers[instance_id])
-            elif index == 0: return SceneStatus.CHOOSE_ROLE
+            elif index == 0:
+                self.game_input.last_active_id = instance_id
+                self.game_input.home_menu_index = index
+                return SceneStatus.CHOOSE_ROLE
+            elif index == 1:
+                self.game_input.last_active_id = instance_id
+                self.game_input.home_menu_index = index
+                return SceneStatus.HOW_TO_PLAY
+            elif index == 2:
+                self.game_input.last_active_id = instance_id
+                self.game_input.home_menu_index = index
+                return SceneStatus.EDITOR
             elif index == 3:
                 self.game_input.last_active_id = instance_id
                 self.game_input.home_menu_index = index

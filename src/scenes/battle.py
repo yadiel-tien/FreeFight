@@ -80,44 +80,49 @@ class Battle(Scene):
                     
                 for target in players:
                     if target != attacker and not target.is_hit and target.health > 0:
-                        hurtbox = target.get_hurtbox()
-                        if hitbox.colliderect(hurtbox):
-                            data = attacker.attack_data[attacker.status]
-                            target.take_hit(data['damage'], data['knockback'], attacker)
-                            
-                            # 连击计数更新
-                            attacker.combo_count += 1
-                            attacker.max_combo = max(attacker.max_combo, attacker.combo_count)
-                            attacker.combo_timer = 1.0
-                            
-                            # 双方动态顿帧 (Hit Stop) - 给予双方受伤害级别相符的定格感
-                            if data['damage'] < 60:
-                                attacker.hit_stop_timer = 0.08
-                            elif data['damage'] < 100:
-                                attacker.hit_stop_timer = 0.12
-                            elif data['damage'] < 250:
-                                attacker.hit_stop_timer = 0.18
-                            else:
-                                attacker.hit_stop_timer = 0.25
-                            
-                            # 触发震屏
-                            self.apply_shake(0.15, 8 if data['damage'] > 100 else 4)
-
-                            # 生成打击特效 (在碰撞点)
-                            from src.ui.ui import HitSpark
-                            spark_pos = hitbox.clip(hurtbox).center
-                            HitSpark(spark_pos, self.effect_sprites)
-                            
-                            # 检测是否产生胜者
-                            if target.health <= 0:
-                                self.match_ended = True
-                                self.settlement_timer = 2.0 # 2秒后显示结算界面
-                                for p in players:
-                                    if p.health > 0:
-                                        self.winner = p
-                                        if 'victory' in p.images: p.status = 'victory'
-                                        elif 'show off' in p.images: p.status = 'show off'
-                                        p.image_index = 0
+                        if not hasattr(attacker, 'has_hit_targets') or not isinstance(attacker.has_hit_targets, dict) or target not in attacker.has_hit_targets:
+                            hurtbox = target.get_hurtbox()
+                            if hitbox.colliderect(hurtbox):
+                                if not hasattr(attacker, 'has_hit_targets') or not isinstance(attacker.has_hit_targets, dict):
+                                    attacker.has_hit_targets = {}
+                                attacker.has_hit_targets[target] = 0.35
+                                
+                                data = attacker.attack_data[attacker.status]
+                                target.take_hit(data['damage'], data['knockback'], attacker)
+                                
+                                # 连击计数更新
+                                attacker.combo_count += 1
+                                attacker.max_combo = max(attacker.max_combo, attacker.combo_count)
+                                attacker.combo_timer = 1.0
+                                
+                                # 双方动态顿帧 (Hit Stop) - 给予双方受伤害级别相符的定格感
+                                if data['damage'] < 60:
+                                    attacker.hit_stop_timer = 0.08
+                                elif data['damage'] < 100:
+                                    attacker.hit_stop_timer = 0.12
+                                elif data['damage'] < 250:
+                                    attacker.hit_stop_timer = 0.18
+                                else:
+                                    attacker.hit_stop_timer = 0.25
+                                
+                                # 触发震屏
+                                self.apply_shake(0.15, 8 if data['damage'] > 100 else 4)
+    
+                                # 生成打击特效 (在碰撞点)
+                                from src.ui.ui import HitSpark
+                                spark_pos = hitbox.clip(hurtbox).center
+                                HitSpark(spark_pos, self.effect_sprites)
+                                
+                                # 检测是否产生胜者
+                                if target.health <= 0:
+                                    self.match_ended = True
+                                    self.settlement_timer = 2.0 # 2秒后显示结算界面
+                                    for p in players:
+                                        if p.health > 0:
+                                            self.winner = p
+                                            if 'victory' in p.images: p.status = 'victory'
+                                            elif 'show off' in p.images: p.status = 'show off'
+                                            p.image_index = 0
         
         # 2. 实体挤压碰撞 (防止穿模)
         for i in range(len(players)):
@@ -372,14 +377,8 @@ class Battle(Scene):
                     player.pos.x = right_limit
                     player.rect.midbottom = player.pos
             
-            # 绘制角色的冲刺/大招残影特效 (Ghost Trails)
-            for ghost in player.ghosts:
-                ghost_img = ghost['image'].copy()
-                ghost_img.set_alpha(int(ghost['alpha']))
-                
-                # 渲染残影 (应用摄像机偏移)
-                ghost_offset_pos = pygame.math.Vector2(ghost['pos']) - self.camera_offset
-                self.screen.blit(ghost_img, ghost_offset_pos)
+            # Ghost Trails removed
+            pass
 
             offset_pos = player.rect.topleft - self.camera_offset
             self.screen.blit(player.image, offset_pos)
@@ -422,20 +421,7 @@ class Battle(Scene):
                             player.rect.centery - self.camera_offset.y - aura_radius)
                 self.screen.blit(aura_surf, aura_pos)
             
-            # --- 收招僵直视觉效果：角色轮廓白色闪烁 (Recovery Lag Flash) ---
-            if player.recovery_timer > 0:
-                import math
-                flash_alpha = int(60 + 40 * math.sin(pygame.time.get_ticks() / 50))
-                # 复制角色图片，利用原始 alpha 通道作为蒙版
-                flash_surf = player.image.copy()
-                # 将所有可见像素的 RGB 变为白色 (保留原 alpha 通道)
-                flash_surf.fill((255, 255, 255), special_flags=pygame.BLEND_RGB_MAX)
-                # 降低整体透明度，实现半透闪烁
-                alpha_mask = pygame.Surface(flash_surf.get_size(), pygame.SRCALPHA)
-                alpha_mask.fill((255, 255, 255, max(0, flash_alpha)))
-                flash_surf.blit(alpha_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-                flash_pos = player.rect.topleft - self.camera_offset
-                self.screen.blit(flash_surf, flash_pos)
+            # --- 收招僵直视觉效果已移除（原白色轮廓闪烁会产生白色方框问题）---
 
             # 调试渲染：绘制判定框
             if self.debug_mode:
