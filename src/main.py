@@ -1,4 +1,20 @@
 import sys
+import os
+
+# Hide Pygame welcome prompt
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+
+# Temporarily silence stderr file descriptor to suppress noisy Objective-C duplicate class warnings and Cocoa warnings
+stderr_dup = None
+try:
+    stderr_fileno = sys.stderr.fileno()
+    null_fileno = os.open(os.devnull, os.O_WRONLY)
+    stderr_dup = os.dup(stderr_fileno)
+    os.dup2(null_fileno, stderr_fileno)
+    os.close(null_fileno)
+except Exception:
+    pass
+
 import pygame
 
 from src.ui.components.dialogue import Dialogue
@@ -9,6 +25,15 @@ from src.scenes.home import Home
 from src.scenes.settings import Settings
 from src.scenes.role_picker import RolePicker
 from src.scenes.editor import Editor
+from src.scenes.converter import VideoConverterScene
+
+# Restore stderr
+if stderr_dup is not None:
+    try:
+        os.dup2(stderr_dup, sys.stderr.fileno())
+        os.close(stderr_dup)
+    except Exception:
+        pass
 from src.core.constants import *
 
 
@@ -31,6 +56,8 @@ class Game:
         self.current_scene = SceneStatus.UNDEFINED
         if "--editor" in sys.argv or "-e" in sys.argv:
             self.next_scene = SceneStatus.EDITOR
+        elif "--converter" in sys.argv or "-c" in sys.argv or "--gif" in sys.argv or "-g" in sys.argv:
+            self.next_scene = SceneStatus.CONVERTER
         else:
             self.next_scene = SceneStatus.HOME
         self.scene = None
@@ -56,6 +83,8 @@ class Game:
                     self.scene = Settings(self.game_input, self.display_surf)
                 elif self.next_scene == SceneStatus.EDITOR:
                     self.scene = Editor(self.game_input, self.display_surf)
+                elif self.next_scene == SceneStatus.CONVERTER:
+                    self.scene = VideoConverterScene(self.game_input, self.display_surf, previous_scene=self.current_scene)
                 elif self.next_scene == SceneStatus.HOW_TO_PLAY:
                     from src.scenes.practice import Practice
                     self.scene = Practice(self.game_input, self.display_surf)

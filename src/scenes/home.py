@@ -42,7 +42,8 @@ class Home(Scene):
         self.screen.blit(self.title_surf, (500, 250))
 
         if self.dialogue.showing:
-            if self.dialogue.run():
+            res = self.dialogue.run()
+            if res and self.menu.selected_index == 4:
                 return SceneStatus.EXIT
             return SceneStatus.HOME
 
@@ -78,7 +79,9 @@ class Home(Scene):
             elif index == 2:
                 self.game_input.last_active_id = instance_id
                 self.game_input.home_menu_index = index
-                return SceneStatus.EDITOR
+                lang = config.get('system', 'language')
+                msg = '角色查看功能敬请期待！' if lang == 'zh_CN' else 'Character viewer coming soon!'
+                self.dialogue.show(msg, self.game_input.controllers[instance_id])
             elif index == 3:
                 self.game_input.last_active_id = instance_id
                 self.game_input.home_menu_index = index

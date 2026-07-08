@@ -4,6 +4,7 @@ import json
 import pygame
 from src.scenes.scene import Scene, SceneStatus
 from src.core.support import resource_path, import_gifs_dict
+from src.core.config import config
 
 class Editor(Scene):
     def __init__(self, game_input, surface):
@@ -105,6 +106,8 @@ class Editor(Scene):
         )
         
         self.load_character()
+        
+        self.next_scene_status = SceneStatus.EDITOR
 
     def load_character(self):
         if not self.characters:
@@ -334,7 +337,8 @@ class Editor(Scene):
             self.copy_feedback_timer = pygame.time.get_ticks()
 
     def handle_event(self, event):
-        # 0. 如果显示退出弹窗，拦截并处理弹窗交互
+
+        # 0.1 如果显示退出弹窗，拦截并处理弹窗交互
         if self.show_exit_dialog:
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 m_pos = event.pos
@@ -460,6 +464,13 @@ class Editor(Scene):
 
         # 3. 鼠标左键框选绘制与数值面板交互
         elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                # 检查是否点击了 "视频转 GIF" 按钮
+                video_btn_rect = pygame.Rect(20, 600, 200, 38)
+                if video_btn_rect.collidepoint(event.pos) and not self.dropdown_expanded:
+                    self.next_scene_status = SceneStatus.CONVERTER
+                    return
+
             if event.button == 1 and self.frames and not self.dropdown_expanded:
                 # 确定点击位置在右侧 Inspector 区域内
                 if event.pos[0] >= 1040 and event.pos[1] > 70:
@@ -508,6 +519,11 @@ class Editor(Scene):
                 self.drag_current = None
 
     def run(self, dt) -> SceneStatus:
+        if self.next_scene_status != SceneStatus.EDITOR:
+            ret = self.next_scene_status
+            self.next_scene_status = SceneStatus.EDITOR
+            return ret
+
         self.screen.fill(self.BG_COLOR)
         
         # 绘制背景的极客风 CAD 方格网 (Sleek Grid Layout)
@@ -712,6 +728,20 @@ class Editor(Scene):
             self.screen.blit(txt, (18, y))
             y += 24
             
+        # --- 2.5 视频转 GIF 按钮 ---
+        lang = config.get('system', 'language')
+        video_btn_rect = pygame.Rect(20, 600, 200, 38)
+        m_x, m_y = pygame.mouse.get_pos()
+        btn_hover = video_btn_rect.collidepoint(m_x, m_y)
+        btn_bg = self.ACCENT_COLOR if btn_hover else ((40, 40, 52) if self.theme_mode == 'dark' else (230, 230, 240))
+        pygame.draw.rect(self.screen, btn_bg, video_btn_rect, 0, 6)
+        if not btn_hover:
+            pygame.draw.rect(self.screen, self.PANEL_BORDER, video_btn_rect, 1, 6)
+        
+        btn_txt = self.font_small.render("视频转 GIF" if lang == 'zh_CN' else "Video to GIF", True, self.TEXT_COLOR)
+        btn_txt_r = btn_txt.get_rect(center=video_btn_rect.center)
+        self.screen.blit(btn_txt, btn_txt_r)
+            
         # --- 3. 右侧极客风 Inspector 面板 (招式与角色属性配置选项卡) ---
         m_pos = pygame.mouse.get_pos()
         self.inspector.draw(self.screen, m_pos, self.status_list[self.status_index] if self.status_list else "None", self.collision_data)
@@ -809,3 +839,5 @@ class Editor(Scene):
             txt = self.font_small.render(msg, True, self.TEXT_COLOR)
             txt_r = txt.get_rect(center=toast_rect.center)
             self.screen.blit(txt, txt_r)
+
+
